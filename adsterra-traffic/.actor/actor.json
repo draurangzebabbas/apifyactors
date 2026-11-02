@@ -1,0 +1,17 @@
+{
+    "$schema": "https://apify.com/schemas/v1/actor.ide.json",
+    "actorSpecification": 1,
+    "name": "adsterra-direct-link-tester",
+    "title": "Organic SERP, Backlink & Direct Traffic Generator",
+    "description": "Flexible browser-based traffic generator supporting Google SERP organic clicks, Backlink referral traffic (LinkedIn, Reddit, Medium, Facebook, etc.), and Direct visits with humanized browsing, random scrolling, deep internal navigation, and analytics.",
+    "version": "1.2",
+    "meta": {
+        "templateId": "js-crawlee-playwright-chrome",
+        "generatedBy": "Antigravity"
+    },
+    "inputSchema": "./input_schema.json",
+    "storages": {
+        "dataset": "./dataset_schema.json"
+    },
+    "dockerfile": "../Dockerfile"
+}

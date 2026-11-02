@@ -1,0 +1,17 @@
+{
+    "$schema": "https://apify.com/schemas/v1/output.ide.json",
+    "actorOutputSchemaVersion": 1,
+    "title": "Adsterra Direct Link Tester — Output",
+    "properties": {
+        "results": {
+            "type": "string",
+            "title": "Test Results (Dataset)",
+            "template": "{{links.apiDefaultDatasetUrl}}/items"
+        },
+        "runSummary": {
+            "type": "string",
+            "title": "Run Summary (Key-Value Store)",
+            "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/RUN_SUMMARY"
+        }
+    }
+}

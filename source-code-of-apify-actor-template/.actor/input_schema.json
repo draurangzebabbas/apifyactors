@@ -1,0 +1,38 @@
+{
+    "$schema": "https://apify.com/schemas/v1/input.ide.json",
+    "title": "Facebook Post Auto-Commenter Input",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "postUrl": {
+            "title": "Facebook Post URL or Post ID",
+            "type": "string",
+            "description": "The URL of the Facebook group post (e.g. https://www.facebook.com/share/p/1HsiUkMVbJ/), or the numeric post ID.",
+            "editor": "textfield",
+            "prefill": "https://www.facebook.com/"
+        },
+        "commentText": {
+            "title": "Comment Message",
+            "type": "string",
+            "description": "The comment text to post.",
+            "editor": "textarea"
+        },
+        "cookies": {
+            "title": "Facebook Cookies",
+            "type": "array",
+            "description": "JSON array of Facebook cookies from Cookie-Editor / EditThisCookie, or a string of cookies.",
+            "editor": "json"
+        },
+        "proxyConfiguration": {
+            "title": "Proxy Configuration",
+            "type": "object",
+            "description": "Select proxy to avoid Facebook bot detection. Residential proxies are recommended for long account lifespan.",
+            "editor": "proxy",
+            "default": {
+                "useApifyProxy": true,
+                "apifyProxyGroups": ["RESIDENTIAL"]
+            }
+        }
+    },
+    "required": ["postUrl", "commentText", "cookies"]
+}

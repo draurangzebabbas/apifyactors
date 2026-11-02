@@ -1,0 +1,63 @@
+{
+    "$schema": "https://apify.com/schemas/v1/dataset.ide.json",
+    "actorSpecification": 1,
+    "fields": {
+        "success": {
+            "type": "boolean",
+            "description": "Whether the comment was posted successfully."
+        },
+        "message": {
+            "type": "string",
+            "description": "Result status message."
+        },
+        "postUrl": {
+            "type": "string",
+            "description": "The URL of the Facebook post."
+        },
+        "commentText": {
+            "type": "string",
+            "description": "The comment text that was posted."
+        },
+        "pageName": {
+            "type": "string",
+            "description": "The profile or page name used."
+        },
+        "timestamp": {
+            "type": "string",
+            "description": "ISO timestamp of execution."
+        }
+    },
+    "views": {
+        "overview": {
+            "title": "Overview",
+            "transformation": {
+                "fields": ["success", "message", "commentText", "postUrl", "timestamp"]
+            },
+            "display": {
+                "component": "table",
+                "properties": {
+                    "success": {
+                        "label": "Success",
+                        "format": "boolean"
+                    },
+                    "message": {
+                        "label": "Status",
+                        "format": "text"
+                    },
+                    "commentText": {
+                        "label": "Comment Posted",
+                        "format": "text"
+                    },
+                    "postUrl": {
+                        "label": "Post URL",
+                        "format": "link"
+                    },
+                    "timestamp": {
+                        "label": "Time",
+                        "format": "text"
+                    }
+                }
+            }
+        }
+    }
+}

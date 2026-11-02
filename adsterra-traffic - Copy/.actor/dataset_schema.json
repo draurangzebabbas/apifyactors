@@ -1,0 +1,108 @@
+{
+    "$schema": "https://apify.com/schemas/v1/dataset.ide.json",
+    "actorSpecification": 1,
+    "fields": {
+        "trafficSource": { "type": "string", "description": "Traffic mode used: direct, serp_google, or backlink." },
+        "sessionNumber": { "type": "integer", "description": "Repetition session index (1-based)." },
+        "inputUrl": { "type": "string", "description": "Original target URL submitted." },
+        "status": { "type": "string", "description": "Session outcome: SUCCESS or FAILED." },
+        "serpQuery": { "type": "string", "description": "Google query searched if in SERP mode." },
+        "serpRankFound": { "type": "integer", "description": "Organic rank position found on Google SERP." },
+        "serpClickSucceeded": { "type": "boolean", "description": "Whether link was clicked from SERP." },
+        "backlinkSourceUrl": {
+            "type": "string",
+            "description": "URL of source page where backlink was located (LinkedIn, Reddit, etc.)."
+        },
+        "backlinkAnchorText": { "type": "string", "description": "Anchor text searched on the backlink page." },
+        "backlinkClickSucceeded": {
+            "type": "boolean",
+            "description": "Whether the backlink on the source page was found and clicked."
+        },
+        "landingUrl": { "type": "string", "description": "Final destination URL reached." },
+        "landingTitle": { "type": "string", "description": "HTML page title of the landing page." },
+        "httpStatus": { "type": "integer", "description": "HTTP response status code." },
+        "redirectCount": { "type": "integer", "description": "Number of HTTP 3xx redirects observed." },
+        "referrer": { "type": "string", "description": "Document referrer observed on the landing page." },
+        "landingDwellSeconds": { "type": "integer", "description": "Seconds spent browsing the landing page." },
+        "landingScrollDepthPercent": {
+            "type": "integer",
+            "description": "Max scroll depth percentage reached on landing page."
+        },
+        "internalNavigationEnabled": {
+            "type": "boolean",
+            "description": "Whether deep internal browsing was enabled."
+        },
+        "internalPagesCount": { "type": "integer", "description": "Number of internal pages visited in this session." },
+        "internalPagesVisited": {
+            "type": "array",
+            "description": "List of internal pages visited with titles, dwell, and scroll depth."
+        },
+        "navigationPath": { "type": "array", "description": "Trail of pages navigated during the session." },
+        "totalPagesVisited": {
+            "type": "integer",
+            "description": "Total number of pages visited (landing + internal)."
+        },
+        "totalSessionDwellSeconds": {
+            "type": "integer",
+            "description": "Total combined dwell time across all pages in seconds."
+        },
+        "isBlankPage": { "type": "boolean", "description": "True if page appears blank (no text/images/iframes)." },
+        "adDetection": { "type": "object", "description": "Counts of ad iframes, ad scripts, canvas, video found." },
+        "proxyUsed": { "type": "string", "description": "Proxy description used for this session." },
+        "consoleErrors": { "type": "array", "description": "Browser console JS errors." },
+        "networkFailures": { "type": "array", "description": "Failed network requests." },
+        "screenshotBeforeScroll": {
+            "type": "string",
+            "description": "KV Store key for landing before-scroll screenshot."
+        },
+        "screenshotAfterScroll": {
+            "type": "string",
+            "description": "KV Store key for landing after-scroll screenshot."
+        },
+        "startedAt": { "type": "string", "description": "ISO 8601 session start timestamp." },
+        "finishedAt": { "type": "string", "description": "ISO 8601 session completion timestamp." },
+        "durationSeconds": { "type": "integer", "description": "Total session duration in seconds." },
+        "errorType": { "type": "string", "description": "Error category if session failed." },
+        "errorMessage": { "type": "string", "description": "Detailed error message if session failed." }
+    },
+    "views": {
+        "overview": {
+            "title": "Traffic & Analytics Overview",
+            "transformation": {
+                "fields": [
+                    "sessionNumber",
+                    "trafficSource",
+                    "status",
+                    "landingUrl",
+                    "landingTitle",
+                    "httpStatus",
+                    "referrer",
+                    "totalPagesVisited",
+                    "totalSessionDwellSeconds",
+                    "landingScrollDepthPercent",
+                    "isBlankPage",
+                    "screenshotBeforeScroll",
+                    "screenshotAfterScroll"
+                ]
+            },
+            "display": {
+                "component": "table",
+                "properties": {
+                    "sessionNumber": { "label": "#", "format": "number" },
+                    "trafficSource": { "label": "Source", "format": "text" },
+                    "status": { "label": "Status", "format": "text" },
+                    "landingUrl": { "label": "Landing URL", "format": "link" },
+                    "landingTitle": { "label": "Page Title", "format": "text" },
+                    "httpStatus": { "label": "HTTP", "format": "number" },
+                    "referrer": { "label": "Referrer", "format": "text" },
+                    "totalPagesVisited": { "label": "Pages Visited", "format": "number" },
+                    "totalSessionDwellSeconds": { "label": "Total Dwell (s)", "format": "number" },
+                    "landingScrollDepthPercent": { "label": "Scroll Depth (%)", "format": "number" },
+                    "isBlankPage": { "label": "Blank?", "format": "boolean" },
+                    "screenshotBeforeScroll": { "label": "Screenshot (Before)", "format": "text" },
+                    "screenshotAfterScroll": { "label": "Screenshot (After)", "format": "text" }
+                }
+            }
+        }
+    }
+}

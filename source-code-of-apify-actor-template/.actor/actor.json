@@ -1,0 +1,17 @@
+{
+    "$schema": "https://apify.com/schemas/v1/actor.ide.json",
+    "actorSpecification": 1,
+    "name": "fb-auto-commenter",
+    "title": "Facebook Post Auto Commenter",
+    "description": "Automatically posts comments to Facebook Group and Page posts using Playwright and session cookies.",
+    "version": "1.0",
+    "meta": {
+        "templateId": "js-crawlee-playwright-chrome"
+    },
+    "inputSchema": "./input_schema.json",
+    "outputSchema": "./output_schema.json",
+    "storages": {
+        "dataset": "./dataset_schema.json"
+    },
+    "dockerfile": "../Dockerfile"
+}
