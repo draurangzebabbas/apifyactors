@@ -1,6 +1,8 @@
 import webpush from "web-push"
 import { NextResponse } from "next/server"
 
+export const dynamic = "force-dynamic"
+
 export async function POST(req: Request) {
   try {
     const pubKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY

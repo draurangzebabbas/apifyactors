@@ -1,10 +1,7 @@
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/utils/supabase/admin"
 import { NextResponse } from "next/server"
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export const dynamic = "force-dynamic"
 
 export async function POST(req: Request) {
   try {
@@ -20,6 +17,7 @@ export async function POST(req: Request) {
       if (text.startsWith("/start ")) {
         const userId = text.replace("/start ", "").trim()
         
+        const supabase = createAdminClient()
         // Update user record in Supabase
         const { error } = await supabase
           .from("users")
@@ -36,7 +34,7 @@ export async function POST(req: Request) {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 chat_id: chatId,
-                text: "Successfully connected! You will now receive keyword match notifications here."
+                text: "Successfully connected! You will now receive traffic campaign notifications here."
               })
             })
           }

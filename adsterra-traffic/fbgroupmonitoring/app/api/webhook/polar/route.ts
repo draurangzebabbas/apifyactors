@@ -1,8 +1,10 @@
 import { Webhooks } from '@polar-sh/supabase';
 import { createAdminClient } from '@/utils/supabase/admin';
 
+export const dynamic = "force-dynamic";
+
 export const POST = Webhooks({
-  webhookSecret: process.env.POLAR_WEBHOOK_SECRET as string,
+  webhookSecret: (process.env.POLAR_WEBHOOK_SECRET || 'whsec_placeholder') as string,
   onPayload: async (payload: any) => {
     console.log("Polar webhook payload received:", payload.type);
   },

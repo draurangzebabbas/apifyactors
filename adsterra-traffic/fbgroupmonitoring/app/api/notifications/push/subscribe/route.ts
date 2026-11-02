@@ -1,11 +1,7 @@
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/utils/supabase/admin"
 import { NextResponse } from "next/server"
 
-// We use the service role key to securely write to the user's record
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export const dynamic = "force-dynamic"
 
 export async function POST(req: Request) {
   try {
@@ -15,6 +11,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing subscription or userId" }, { status: 400 })
     }
 
+    const supabase = createAdminClient()
     const { error } = await supabase
       .from("users")
       .update({ push_subscription: subscription })

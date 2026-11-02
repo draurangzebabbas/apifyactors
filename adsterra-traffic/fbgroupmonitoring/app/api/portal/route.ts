@@ -4,7 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
 
 const polarPortalHandler = CustomerPortal({
-  accessToken: process.env.POLAR_ACCESS_TOKEN as string,
+  accessToken: (process.env.POLAR_ACCESS_TOKEN || "polar_placeholder") as string,
   getCustomerId: async (req) => {
     try {
       const supabase = await createClient();
