@@ -39,7 +39,7 @@ export default function NewCampaignPage() {
   const [urls, setUrls] = useState<string[]>(["https://"])
   const [totalVisits, setTotalVisits] = useState(100)
   const [durationHours, setDurationHours] = useState(1)
-  const [trafficSource, setTrafficSource] = useState<string>("simulated_referral")
+  const [trafficSource, setTrafficSource] = useState<string>("referrer")
   const [referrerPreset, setReferrerPreset] = useState("preset_search")
   const [deviceType, setDeviceType] = useState("random")
   const [scrollBehavior, setScrollBehavior] = useState("human-random")
@@ -372,28 +372,28 @@ export default function NewCampaignPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Traffic Channel</Label>
-                  <Select value={trafficSource} onValueChange={(val) => setTrafficSource(val || "simulated_referral")}>
+                  <Select value={trafficSource} onValueChange={(val) => setTrafficSource(val || "referrer")}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="simulated_referral">
-                        Simulated Referral (Search Engines & Social Referrers)
+                      <SelectItem value="referrer">
+                        Simulated Referral (Search Engines &amp; Social Referrers)
                       </SelectItem>
                       <SelectItem value="serp_google">
-                        Google Search (SERP) — Real Keyword Search & Organic Click
+                        Google Search (SERP) — Real Keyword Search &amp; Organic Click
                       </SelectItem>
                       <SelectItem value="direct">
                         Direct Navigation (Type URL in browser)
                       </SelectItem>
-                      <SelectItem value="social">
-                        Social Networks (X, Facebook, Reddit, Pinterest)
+                      <SelectItem value="backlink">
+                        Backlink Traffic (Navigate to Source Page &amp; Click Link)
                       </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {trafficSource === "simulated_referral" && (
+                {trafficSource === "referrer" && (
                   <div className="space-y-2">
                     <Label>Referrer Profile</Label>
                     <Select value={referrerPreset} onValueChange={(val) => setReferrerPreset(val || "preset_search")}>

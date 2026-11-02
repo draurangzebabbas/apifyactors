@@ -9,7 +9,7 @@ const webpush = require('web-push');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-const ACTOR_ID = process.env.APIFY_ACTOR_ID || 'Yw1lHbf8dh1EMWd85'; // adsterra-traffic Actor ID
+const ACTOR_ID = process.env.APIFY_ACTOR_ID || 'wmJ51jY3JE7K6cO9u'; // adsterra-traffic Actor ID (published)
 
 // Middleware
 app.use(cors({
@@ -390,26 +390,41 @@ async function runTrafficBatchWorker() {
 
         console.log(`🚀 [Worker] Launching Batch #${batch.batch_number} for campaign "${campaign.name}" (${batch.visits_target} visits) using key "${key.key_name || key.id}"...`);
 
-        // Build Actor input according to adsterra-traffic spec
-        const proxyConfig = (campaign.traffic_source === 'serp_google' && Array.isArray(campaign.user_proxy_urls) && campaign.user_proxy_urls.length > 0)
-          ? { useApifyProxy: false, proxyUrls: campaign.user_proxy_urls }
-          : { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] };
+        // Build Actor input according to adsterra-traffic actor spec
+        // trafficSource enum: 'referrer' | 'serp_google' | 'backlink' | 'direct'
+        const trafficSrc = campaign.traffic_source || 'referrer';
+
+        // Proxy config: use user-supplied proxies for SERP mode, otherwise Apify residential
+        let proxyConfig = null;
+        if (trafficSrc === 'serp_google' && Array.isArray(campaign.user_proxy_urls) && campaign.user_proxy_urls.length > 0) {
+          proxyConfig = { useApifyProxy: false, proxyUrls: campaign.user_proxy_urls };
+        } else {
+          proxyConfig = { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] };
+        }
 
         const actorInput = {
-          startUrls: campaign.start_urls,
-          totalVisitsTarget: batch.visits_target,
-          concurrency: 1,
-          trafficSource: campaign.traffic_source || 'simulated_referral',
+          // Target URLs — actor expects requestListSources format [{url: "..."}]
+          startUrls: Array.isArray(campaign.start_urls)
+            ? campaign.start_urls.map(item => typeof item === 'string' ? { url: item } : item)
+            : [],
+          // Traffic control
+          totalVisits: batch.visits_target,       // actor field name is totalVisits
+          maxConcurrentSessions: 2,               // actor field name is maxConcurrentSessions
+          // Traffic source & referrer
+          trafficSource: trafficSrc,              // enum: referrer|serp_google|backlink|direct
           referrerSource: campaign.referrer_source || 'preset_search',
+          // Device & behavior
           deviceType: campaign.device_type || 'random',
           scrollBehavior: campaign.scroll_behavior || 'human-random',
           dwellTimeMinSeconds: campaign.dwell_time_min_seconds || 15,
           dwellTimeMaxSeconds: campaign.dwell_time_max_seconds || 45,
           enableInternalNavigation: campaign.enable_internal_navigation ?? true,
           maxInternalPages: campaign.max_internal_pages || 2,
+          // SERP settings
           serpCustomQuery: campaign.serp_custom_query || '',
           serpMaxRetries: campaign.serp_max_retries || 3,
           serpFallbackToDirect: campaign.serp_fallback_to_direct ?? false,
+          // Proxy
           proxyConfiguration: proxyConfig
         };
 
@@ -525,7 +540,7 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
       start_urls,
       total_visits = 100,
       duration_hours = 1,
-      traffic_source = 'simulated_referral',
+      traffic_source = 'referrer',
       referrer_source = 'preset_search',
       device_type = 'random',
       scroll_behavior = 'human-random',
