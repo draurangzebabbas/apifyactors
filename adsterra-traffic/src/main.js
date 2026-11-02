@@ -355,7 +355,8 @@ async function runSession(task) {
     };
 
     let attempt = 0;
-    while (attempt <= retryLimit) {
+    const sessionMaxAttempts = trafficSource === 'serp_google' ? serpRetryLimit : Math.max(retryLimit, 1);
+    while (attempt < sessionMaxAttempts) {
         attempt++;
         let browser = null;
         let context = null;
@@ -805,21 +806,15 @@ async function runSession(task) {
                 break;
             }
 
-            // SERP errors (CAPTCHA, timeout, click fail) → use SERP-specific retry limit
-            if (isSerpError && attempt <= serpRetryLimit) {
-                const retryDelay = 3000 * attempt;
+            const canRetry = attempt < sessionMaxAttempts;
+            if (canRetry) {
+                const retryDelay = isSerpError ? 3000 * attempt : 2000 * attempt;
+                const errorCategory = isSerpError ? 'SERP error' : 'Network error';
                 log.warning(
-                    `[S${sessionNumber}] SERP error (${msg}). Retrying with fresh proxy in ${retryDelay}ms (SERP attempt ${attempt}/${serpRetryLimit})…`,
+                    `[S${sessionNumber}] ${errorCategory} (${msg}). Retrying with fresh proxy in ${retryDelay}ms (attempt ${attempt}/${sessionMaxAttempts})…`,
                 );
                 await sleep(retryDelay);
-                // Loop continues to next attempt automatically
-            } else if (isNetworkError && attempt <= retryLimit) {
-                // Network errors → use general retry limit
-                const retryDelay = 2000 * attempt;
-                log.warning(
-                    `[S${sessionNumber}] Network error (${msg}). Retrying in ${retryDelay}ms (attempt ${attempt}/${retryLimit})…`,
-                );
-                await sleep(retryDelay);
+                // Continues to next attempt automatically in while loop
             } else {
                 result.status = 'FAILED';
                 // Classify error type for output dataset
@@ -830,7 +825,7 @@ async function runSession(task) {
                 result.errorMessage = msg.slice(0, 350);
                 summary.failedSessions++;
                 recordFailureReason(classifyDetailedReason(msg));
-                log.error(`[S${sessionNumber}] Session failed: ${msg}`);
+                log.error(`[S${sessionNumber}] Session failed after ${attempt} attempts: ${msg}`);
                 break;
             }
         } finally {

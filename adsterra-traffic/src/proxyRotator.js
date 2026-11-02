@@ -40,7 +40,10 @@ export function rotateResidentialProxyUrl(proxyUrl, sessionNumber = 1, attempt =
         if (/sessid-[a-zA-Z0-9]+/i.test(user)) {
             user = user.replace(/sessid-[a-zA-Z0-9]+/gi, `sessid-${newSessionId}`);
             modified = true;
-        } else if (user.includes('customer-resi') || u.hostname.includes('oxylabs.io')) {
+        } else if (
+            user.includes('customer-resi') ||
+            (u.hostname === 'pr.oxylabs.io' && !user.startsWith('isp_') && !u.hostname.includes('isp.') && !u.hostname.includes('dc.'))
+        ) {
             // Oxylabs residential without explicit sessid - inject sessid
             user = `${user}-sessid-${newSessionId}`;
             modified = true;

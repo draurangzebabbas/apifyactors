@@ -330,10 +330,12 @@ describe('Residential Proxy Session Auto-Rotation', () => {
         expect(rotated).not.toContain('session-99999');
     });
 
-    it('should preserve standard static datacenter proxies without modification', () => {
+    it('should preserve standard static datacenter and Oxylabs ISP proxies without modification', () => {
         const dc = 'http://user:pass@45.38.107.97:6014';
-        const rotated = rotateResidentialProxyUrl(dc, 1, 1);
-        expect(rotated).toBe(dc);
+        expect(rotateResidentialProxyUrl(dc, 1, 1)).toBe(dc);
+
+        const oxylabsIsp = 'http://isp_6c0b5c8e:br2w+DHqfe+G@isp.oxylabs.io:8001';
+        expect(rotateResidentialProxyUrl(oxylabsIsp, 1, 1)).toBe(oxylabsIsp);
     });
 
     it('should handle empty or null proxy URLs safely', () => {
