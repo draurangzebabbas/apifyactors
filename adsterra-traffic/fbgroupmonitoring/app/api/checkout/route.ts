@@ -7,7 +7,7 @@ const POLAR_UNIT_PRODUCT_ID = process.env.POLAR_UNIT_PRODUCT_ID || "61f8dcb9-7b2
 
 export const GET = async (req: Request) => {
   try {
-    const token = process.env.POLAR_ACCESS_TOKEN;
+    const token = process.env.POLAR_ACCESS_TOKEN || "polar_oat_S67FtOjSHygvekvODytZ935Vn0tOPNTUf2Ro83kKtdw";
     if (!token || token === "polar_placeholder" || token.length < 10) {
       return NextResponse.json({
         error: "Polar Configuration Error",

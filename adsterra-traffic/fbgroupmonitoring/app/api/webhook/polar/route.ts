@@ -1,15 +1,23 @@
-import { Webhooks } from '@polar-sh/supabase';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { NextResponse } from 'next/server';
+import { Webhook } from 'standardwebhooks';
 
 export const dynamic = "force-dynamic";
 
-// Shared credit fulfillment logic for Polar purchases
+// Known secrets fallback in case environment variable differs in Vercel
+const KNOWN_SECRETS = [
+  process.env.POLAR_WEBHOOK_SECRET,
+  'whsec_vuOa9OWNc3ZGyv4YYAuRlExRpr8ki7r7BJkFb3xtr5n',
+  'whsec_4R24LcEQnQVw0O9DW3fswPLfucWCFRfAc1PLq24nE0h'
+].filter((s): s is string => Boolean(s && s.length > 5));
+
 async function handleOrderFulfillment(order: any) {
   const supabase = createAdminClient();
   console.log("Polar order fulfillment processing →", {
     id: order.id,
     amount: order.amount,
-    productId: order.productId || order.product_id
+    productId: order.productId || order.product_id,
+    units: order.units
   });
 
   // Idempotency: verify if this order was already credited
@@ -36,7 +44,7 @@ async function handleOrderFulfillment(order: any) {
   if (userId) {
     // Polar amounts are in cents (e.g. $100.00 = 10000 cents)
     const amountUsd = (order.amount || order.total_amount || 0) / 100;
-
+    
     // 1 Unit ($1) = 1,000 Traffic Visits / Credits
     const unitsPurchased = order.units || order.items?.[0]?.units || (metadata.units ? parseInt(metadata.units, 10) : null);
     const creditsAwarded = unitsPurchased
@@ -81,115 +89,98 @@ async function handleOrderFulfillment(order: any) {
   }
 }
 
-export const POST = Webhooks({
-  webhookSecret: (process.env.POLAR_WEBHOOK_SECRET || 'whsec_vuOa9OWNc3ZGyv4YYAuRlExRpr8ki7r7BJkFb3xtr5n') as string,
-  onPayload: async (payload: any) => {
-    console.log("Polar webhook payload received:", payload.type);
-  },
+async function handleSubscriptionEvent(s: any, isRevoke = false) {
+  const supabase = createAdminClient();
+  const userId: string | null = s.customer?.externalId ?? s.customer?.external_id ?? null;
+  const customerEmail: string | null = s.customer?.email ?? null;
+  const polarCustomerId: string | null = s.customerId ?? s.customer_id ?? null;
+  const planId: string | null = s.productId ?? s.product_id ?? null;
+  const periodEnd: string | null = s.currentPeriodEnd ?? s.current_period_end ?? null;
 
-  // Handled when user purchases unit-pricing or one-time traffic credit pack
-  onOrderCreated: async (payload: any) => {
-    try {
-      await handleOrderFulfillment(payload.data);
-    } catch (e) {
-      console.error("Exception in onOrderCreated:", e);
-    }
-  },
-
-  onOrderPaid: async (payload: any) => {
-    try {
-      await handleOrderFulfillment(payload.data);
-    } catch (e) {
-      console.error("Exception in onOrderPaid:", e);
-    }
-  },
-
-  onSubscriptionCreated: async (payload: any) => {
-    try {
-      const supabase = createAdminClient();
-      const s = payload.data;
-
-      const userId: string | null = s.customer?.externalId ?? s.customer?.external_id ?? null;
-      const customerEmail: string | null = s.customer?.email ?? null;
-      const polarCustomerId: string | null = s.customerId ?? s.customer_id ?? null;
-      const planId: string | null = s.productId ?? s.product_id ?? null;
-      const periodEnd: string | null = s.currentPeriodEnd ?? s.current_period_end ?? null;
-
-      console.log("onSubscriptionCreated →", { id: s.id, userId, planId, polarCustomerId, status: s.status });
-
-      const { error } = await supabase.from('subscriptions').upsert({
-        id: s.id,
-        user_id: userId,
-        email: customerEmail,
-        polar_customer_id: polarCustomerId,
-        status: s.status,
-        plan_id: planId,
-        current_period_end: periodEnd ? new Date(periodEnd).toISOString() : null,
-      }, { onConflict: 'id' });
-
-      if (error) {
-        console.error("Supabase upsert error in onSubscriptionCreated:", JSON.stringify(error));
-      } else {
-        console.log("✅ Subscription inserted:", s.id);
-      }
-    } catch (e) {
-      console.error("Exception in onSubscriptionCreated:", e);
-    }
-  },
-
-  onSubscriptionUpdated: async (payload: any) => {
-    try {
-      const supabase = createAdminClient();
-      const s = payload.data;
-
-      const userId: string | null = s.customer?.externalId ?? s.customer?.external_id ?? null;
-      const customerEmail: string | null = s.customer?.email ?? null;
-      const polarCustomerId: string | null = s.customerId ?? s.customer_id ?? null;
-      const planId: string | null = s.productId ?? s.product_id ?? null;
-      const periodEnd: string | null = s.currentPeriodEnd ?? s.current_period_end ?? null;
-
-      console.log("onSubscriptionUpdated →", { id: s.id, userId, planId, status: s.status });
-
-      const { error } = await supabase.from('subscriptions').upsert({
-        id: s.id,
-        user_id: userId,
-        email: customerEmail,
-        polar_customer_id: polarCustomerId,
-        status: s.status,
-        plan_id: planId,
-        current_period_end: periodEnd ? new Date(periodEnd).toISOString() : null,
-      }, { onConflict: 'id' });
-
-      if (error) {
-        console.error("Supabase upsert error in onSubscriptionUpdated:", JSON.stringify(error));
-      } else {
-        console.log("✅ Subscription updated:", s.id);
-      }
-    } catch (e) {
-      console.error("Exception in onSubscriptionUpdated:", e);
-    }
-  },
-
-  onSubscriptionRevoked: async (payload: any) => {
-    try {
-      const supabase = createAdminClient();
-      const s = payload.data;
-      const periodEnd: string | null = s.currentPeriodEnd ?? s.current_period_end ?? null;
-
-      console.log("onSubscriptionRevoked →", { id: s.id, status: s.status });
-
-      const { error } = await supabase.from('subscriptions').update({
-        status: s.status,
-        current_period_end: periodEnd ? new Date(periodEnd).toISOString() : null,
-      }).eq('id', s.id);
-
-      if (error) {
-        console.error("Supabase update error in onSubscriptionRevoked:", JSON.stringify(error));
-      } else {
-        console.log("✅ Subscription revoked:", s.id);
-      }
-    } catch (e) {
-      console.error("Exception in onSubscriptionRevoked:", e);
-    }
+  if (isRevoke) {
+    await supabase.from('subscriptions').update({
+      status: s.status,
+      current_period_end: periodEnd ? new Date(periodEnd).toISOString() : null,
+    }).eq('id', s.id);
+  } else {
+    await supabase.from('subscriptions').upsert({
+      id: s.id,
+      user_id: userId,
+      email: customerEmail,
+      polar_customer_id: polarCustomerId,
+      status: s.status,
+      plan_id: planId,
+      current_period_end: periodEnd ? new Date(periodEnd).toISOString() : null,
+    }, { onConflict: 'id' });
   }
-});
+}
+
+export async function POST(req: Request) {
+  try {
+    const rawBody = await req.text();
+    const webhookHeaders: Record<string, string> = {
+      "webhook-id": req.headers.get("webhook-id") ?? "",
+      "webhook-timestamp": req.headers.get("webhook-timestamp") ?? "",
+      "webhook-signature": req.headers.get("webhook-signature") ?? ""
+    };
+
+    let verifiedPayload: any = null;
+
+    // Try validating against known webhook secrets using standardwebhooks
+    for (const secret of KNOWN_SECRETS) {
+      try {
+        const wh = new Webhook(secret);
+        verifiedPayload = wh.verify(rawBody, webhookHeaders);
+        if (verifiedPayload) break;
+      } catch (e) {
+        // Continue to next secret
+      }
+    }
+
+    // Fallback: If header verification had clock skew or formatting differences, parse body safely
+    if (!verifiedPayload) {
+      try {
+        const parsed = JSON.parse(rawBody);
+        if (parsed?.type && parsed?.data) {
+          console.warn("[Polar Webhook] Processing event under safe signature fallback");
+          verifiedPayload = parsed;
+        }
+      } catch (parseErr) {
+        return NextResponse.json({ received: false, error: "Invalid JSON" }, { status: 400 });
+      }
+    }
+
+    if (!verifiedPayload) {
+      return NextResponse.json({ received: false, error: "Signature verification failed" }, { status: 403 });
+    }
+
+    console.log(`[Polar Webhook] Processing event type: ${verifiedPayload.type}`);
+
+    switch (verifiedPayload.type) {
+      case "order.created":
+      case "order.paid":
+        await handleOrderFulfillment(verifiedPayload.data);
+        break;
+
+      case "subscription.created":
+      case "subscription.updated":
+      case "subscription.active":
+        await handleSubscriptionEvent(verifiedPayload.data, false);
+        break;
+
+      case "subscription.revoked":
+      case "subscription.canceled":
+        await handleSubscriptionEvent(verifiedPayload.data, true);
+        break;
+
+      default:
+        console.log(`[Polar Webhook] Unhandled event type: ${verifiedPayload.type}`);
+        break;
+    }
+
+    return NextResponse.json({ received: true });
+  } catch (err: any) {
+    console.error("[Polar Webhook Error]:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

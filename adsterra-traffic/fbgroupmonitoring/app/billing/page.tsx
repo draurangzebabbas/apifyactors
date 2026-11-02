@@ -34,7 +34,7 @@ const CREDITS_PER_UNIT = 1000 // Each $1 unit provides 1,000 traffic visits/cred
 
 function BillingContent() {
   const searchParams = useSearchParams()
-  const [balance, setBalance] = useState<number | null>(null)
+  const [balance, setBalance] = useState<number>(0)
   const [totalPurchased, setTotalPurchased] = useState(0)
   const [totalUsed, setTotalUsed] = useState(0)
   const [transactions, setTransactions] = useState<CreditTxn[]>([])
@@ -42,7 +42,6 @@ function BillingContent() {
 
   // Unit Pricing State
   const [units, setUnits] = useState(100)
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"
 
   const fetchCredits = async () => {
     try {
@@ -50,18 +49,36 @@ function BillingContent() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      const res = await fetch(`${backendUrl}/api/credits`, {
-        headers: { Authorization: `Bearer ${session.access_token}` }
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setBalance(data.balance ?? 0)
-        setTotalPurchased(data.total_purchased ?? 0)
-        setTotalUsed(data.total_used ?? 0)
-        setTransactions(data.transactions || [])
+      // Direct Supabase query for immediate balance
+      const { data: credData } = await supabase
+        .from('traffic_credits')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .maybeSingle()
+
+      if (credData) {
+        setBalance(credData.balance ?? 0)
+        setTotalPurchased(credData.total_purchased ?? 0)
+        setTotalUsed(credData.total_used ?? 0)
+      } else {
+        setBalance(0)
+        setTotalPurchased(0)
+        setTotalUsed(0)
+      }
+
+      // Fetch transaction history
+      const { data: txns } = await supabase
+        .from('credit_transactions')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (txns) {
+        setTransactions(txns as CreditTxn[])
       }
     } catch (e) {
-      console.error(e)
+      console.error("Failed to load credits:", e)
     } finally {
       setLoading(false)
     }
@@ -72,7 +89,7 @@ function BillingContent() {
     if (searchParams.get("status") === "success") {
       toast.success("Payment completed! Your traffic credits are now available.")
     }
-  }, [backendUrl, searchParams])
+  }, [searchParams])
 
   const calculatedTotalUsd = units * UNIT_PRICE_USD
   const calculatedTrafficCredits = units * CREDITS_PER_UNIT
