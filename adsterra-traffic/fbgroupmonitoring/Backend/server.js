@@ -419,6 +419,24 @@ async function runTrafficBatchWorker() {
           proxyConfig = { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] };
         }
 
+        // Device type mapping fallback to ensure valid actor enum
+        const validDeviceEnums = [
+          'random', 'desktop-random', 'mobile-random',
+          'desktop-chrome', 'desktop-firefox', 'desktop-safari', 'desktop-edge',
+          'mobile-android', 'mobile-ios'
+        ];
+        let deviceTypeResolved = campaign.device_type || 'random';
+        if (deviceTypeResolved === 'desktop') deviceTypeResolved = 'desktop-random';
+        if (deviceTypeResolved === 'mobile') deviceTypeResolved = 'mobile-random';
+        if (!validDeviceEnums.includes(deviceTypeResolved)) deviceTypeResolved = 'random';
+
+        // Scroll behavior mapping fallback
+        let scrollBehaviorResolved = campaign.scroll_behavior || 'human-random';
+        if (scrollBehaviorResolved === 'linear') scrollBehaviorResolved = 'slow-linear';
+        if (!['human-random', 'slow-linear', 'none'].includes(scrollBehaviorResolved)) {
+          scrollBehaviorResolved = 'human-random';
+        }
+
         const actorInput = {
           // Target URLs — actor expects requestListSources format [{url: "..."}]
           startUrls: Array.isArray(campaign.start_urls)
@@ -431,8 +449,8 @@ async function runTrafficBatchWorker() {
           trafficSource: trafficSrc,              // enum: referrer|serp_google|backlink|direct
           referrerSource: campaign.referrer_source || 'preset_search',
           // Device & behavior
-          deviceType: campaign.device_type || 'random',
-          scrollBehavior: campaign.scroll_behavior || 'human-random',
+          deviceType: deviceTypeResolved,
+          scrollBehavior: scrollBehaviorResolved,
           dwellTimeMinSeconds: campaign.dwell_time_min_seconds || 15,
           dwellTimeMaxSeconds: campaign.dwell_time_max_seconds || 45,
           enableInternalNavigation: campaign.enable_internal_navigation ?? true,

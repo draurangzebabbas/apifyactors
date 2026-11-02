@@ -89,7 +89,19 @@ export default function CampaignDetailPage() {
 
   useEffect(() => {
     fetchCampaign()
-    const interval = setInterval(fetchCampaign, 8000)
+
+    // Smart polling: only poll while active batches or campaign is running
+    // Polling interval is relaxed to 15s to save browser & server resources.
+    // If campaign is finished/paused/cancelled, no interval runs at all.
+    const interval = setInterval(() => {
+      setCampaign(current => {
+        if (current && (current.status === "running" || current.status === "pending")) {
+          fetchCampaign()
+        }
+        return current
+      })
+    }, 15000)
+
     return () => clearInterval(interval)
   }, [campaignId, backendUrl])
 

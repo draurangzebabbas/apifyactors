@@ -47,6 +47,106 @@ export default function NewCampaignPage() {
   // SERP Options
   const [serpQuery, setSerpQuery] = useState("")
   const [proxyUrlsText, setProxyUrlsText] = useState("")
+
+  // Structured Proxy Vault state
+  interface StoredProxy {
+    id: string
+    name: string
+    host: string
+    port: number
+    username: string
+    password: string
+    connectionType: string
+    url: string
+  }
+  const [savedProxies, setSavedProxies] = useState<StoredProxy[]>([])
+  const [selectedProxyIds, setSelectedProxyIds] = useState<string[]>([])
+  const [showAddProxy, setShowAddProxy] = useState(false)
+  const [proxyName, setProxyName] = useState("")
+  const [proxyHost, setProxyHost] = useState("")
+  const [proxyPort, setProxyPort] = useState("7777")
+  const [proxyUser, setProxyUser] = useState("")
+  const [proxyPass, setProxyPass] = useState("")
+  const [proxyConnType, setProxyConnType] = useState("http")
+
+  // Load saved proxies from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("tf_user_proxies")
+      if (raw) {
+        const parsed: StoredProxy[] = JSON.parse(raw)
+        setSavedProxies(parsed)
+        if (parsed.length > 0) {
+          setSelectedProxyIds([parsed[0].id])
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to read proxies from storage", e)
+    }
+  }, [])
+
+  // Sync selected proxies to proxyUrlsText
+  useEffect(() => {
+    if (savedProxies.length > 0 && selectedProxyIds.length > 0) {
+      const activeUrls = savedProxies
+        .filter(p => selectedProxyIds.includes(p.id))
+        .map(p => p.url)
+      setProxyUrlsText(activeUrls.join("\n"))
+    }
+  }, [selectedProxyIds, savedProxies])
+
+  const handleSaveProxy = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!proxyHost.trim()) {
+      toast.error("Host is required (e.g. pr.oxylabs.io)")
+      return
+    }
+    if (!proxyUser.trim() || !proxyPass.trim()) {
+      toast.error("Username and Password are required")
+      return
+    }
+    const cleanPort = parseInt(proxyPort, 10) || 7777
+    const constructedUrl = `${proxyConnType}://${proxyUser.trim()}:${proxyPass.trim()}@${proxyHost.trim()}:${cleanPort}`
+
+    const newProxy: StoredProxy = {
+      id: "proxy_" + Date.now(),
+      name: proxyName.trim() || `Proxy ${savedProxies.length + 1} (${proxyHost.trim()})`,
+      host: proxyHost.trim(),
+      port: cleanPort,
+      username: proxyUser.trim(),
+      password: proxyPass.trim(),
+      connectionType: proxyConnType,
+      url: constructedUrl
+    }
+
+    const updated = [...savedProxies, newProxy]
+    setSavedProxies(updated)
+    setSelectedProxyIds(prev => [...prev, newProxy.id])
+    localStorage.setItem("tf_user_proxies", JSON.stringify(updated))
+    toast.success(`Proxy "${newProxy.name}" saved!`)
+
+    // Reset form
+    setProxyName("")
+    setProxyHost("")
+    setProxyPort("7777")
+    setProxyUser("")
+    setProxyPass("")
+    setShowAddProxy(false)
+  }
+
+  const handleDeleteProxy = (id: string) => {
+    const updated = savedProxies.filter(p => p.id !== id)
+    setSavedProxies(updated)
+    setSelectedProxyIds(prev => prev.filter(pId => pId !== id))
+    localStorage.setItem("tf_user_proxies", JSON.stringify(updated))
+    toast.success("Proxy removed from your saved vault")
+  }
+
+  const toggleSelectProxy = (id: string) => {
+    setSelectedProxyIds(prev => 
+      prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
+    )
+  }
   
   // Engagement
   const [dwellMin, setDwellMin] = useState(15)
@@ -413,7 +513,7 @@ export default function NewCampaignPage() {
                 )}
 
                 {trafficSource === "serp_google" && (
-                  <div className="space-y-4 border rounded-lg p-4 bg-muted/40">
+                  <div className="space-y-5 border rounded-lg p-4 bg-muted/40">
                     <div className="space-y-2">
                       <Label htmlFor="serp-query">Custom Search Query (Optional)</Label>
                       <Input
@@ -427,21 +527,180 @@ export default function NewCampaignPage() {
                       </p>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="proxy-urls">
-                        Your Residential Proxies <span className="text-destructive">*</span>
-                      </Label>
-                      <Textarea
-                        id="proxy-urls"
-                        rows={3}
-                        placeholder="http://customer-resi_user:password@pr.oxylabs.io:7777&#10;http://customer-resi_user2:password@pr.oxylabs.io:7777"
-                        value={proxyUrlsText}
-                        onChange={e => setProxyUrlsText(e.target.value)}
-                        required
-                      />
-                      <p className="text-xs text-amber-600 dark:text-amber-400">
-                        ⚠️ Google BotGuard blocks Datacenter IPs. Please paste your residential proxy credentials (one per line). Protocol must be <code>http://</code>.
-                      </p>
+                    {/* Proxy Vault / Selector */}
+                    <div className="space-y-3 pt-2 border-t border-border/50">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-sm font-semibold flex items-center gap-1.5">
+                            <ShieldCheckIcon className="w-4 h-4 text-primary" />
+                            Residential Proxy Vault <span className="text-destructive">*</span>
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Google SERP requires clean residential IPs. Add and manage your proxies easily below.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowAddProxy(!showAddProxy)}
+                          className="text-xs h-8 gap-1.5"
+                        >
+                          <PlusIcon className="w-3.5 h-3.5" />
+                          {showAddProxy ? "Hide Form" : "Add Proxy"}
+                        </Button>
+                      </div>
+
+                      {/* Add Proxy Form (Clean dedicated fields) */}
+                      {showAddProxy && (
+                        <div className="bg-background border rounded-lg p-4 space-y-3 mt-2 shadow-xs">
+                          <div className="text-xs font-semibold uppercase tracking-wider text-primary">
+                            Add New Residential Proxy
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1 sm:col-span-2">
+                              <Label className="text-xs">Friendly Label / Name</Label>
+                              <Input
+                                placeholder="e.g. Oxylabs US Residential 1"
+                                value={proxyName}
+                                onChange={e => setProxyName(e.target.value)}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Proxy Host / IP <span className="text-destructive">*</span></Label>
+                              <Input
+                                placeholder="pr.oxylabs.io"
+                                value={proxyHost}
+                                onChange={e => setProxyHost(e.target.value)}
+                                className="h-8 text-xs font-mono"
+                                required
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Port <span className="text-destructive">*</span></Label>
+                              <Input
+                                type="number"
+                                placeholder="7777"
+                                value={proxyPort}
+                                onChange={e => setProxyPort(e.target.value)}
+                                className="h-8 text-xs font-mono"
+                                required
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Username <span className="text-destructive">*</span></Label>
+                              <Input
+                                placeholder="customer-resi_user..."
+                                value={proxyUser}
+                                onChange={e => setProxyUser(e.target.value)}
+                                className="h-8 text-xs font-mono"
+                                required
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Password <span className="text-destructive">*</span></Label>
+                              <Input
+                                type="password"
+                                placeholder="••••••••"
+                                value={proxyPass}
+                                onChange={e => setProxyPass(e.target.value)}
+                                className="h-8 text-xs font-mono"
+                                required
+                              />
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2 pt-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowAddProxy(false)}
+                              className="text-xs h-7"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleSaveProxy}
+                              className="text-xs h-7"
+                            >
+                              Save to Vault
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Saved Proxies List */}
+                      {savedProxies.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="text-xs text-muted-foreground">Select proxies to use for this campaign:</div>
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                            {savedProxies.map(p => {
+                              const isChecked = selectedProxyIds.includes(p.id)
+                              return (
+                                <div
+                                  key={p.id}
+                                  onClick={() => toggleSelectProxy(p.id)}
+                                  className={`flex items-center justify-between p-2.5 rounded-md border text-xs cursor-pointer transition ${
+                                    isChecked
+                                      ? "bg-primary/10 border-primary/40 text-foreground"
+                                      : "bg-background hover:bg-muted/50 text-muted-foreground"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5 truncate">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {}}
+                                      className="rounded border-input text-primary"
+                                    />
+                                    <div className="truncate">
+                                      <span className="font-semibold text-foreground">{p.name}</span>
+                                      <span className="ml-2 font-mono text-[11px] opacity-70 truncate">
+                                        {p.host}:{p.port} ({p.username.slice(0, 18)}...)
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDeleteProxy(p.id)
+                                    }}
+                                    className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                                  >
+                                    <TrashIcon className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground p-3 border border-dashed rounded-md text-center">
+                          No saved proxies yet. Click &quot;Add Proxy&quot; to save your Oxylabs, Smartproxy, or BrightData credentials.
+                        </div>
+                      )}
+
+                      {/* Raw proxy string fallback preview */}
+                      <div className="space-y-1.5 pt-1">
+                        <Label htmlFor="proxy-urls" className="text-xs text-muted-foreground">
+                          Active Proxy Configuration (Auto-assembled):
+                        </Label>
+                        <Textarea
+                          id="proxy-urls"
+                          rows={2}
+                          value={proxyUrlsText}
+                          onChange={e => setProxyUrlsText(e.target.value)}
+                          placeholder="http://user:pass@pr.oxylabs.io:7777"
+                          className="font-mono text-xs"
+                          required
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -468,9 +727,13 @@ export default function NewCampaignPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="random">Random Mix (Desktop & Mobile)</SelectItem>
-                        <SelectItem value="desktop">Desktop Only (Chrome, Firefox, Safari)</SelectItem>
-                        <SelectItem value="mobile">Mobile Only (iOS Safari, Android Chrome)</SelectItem>
+                        <SelectItem value="random">Random Mix (Desktop &amp; Mobile)</SelectItem>
+                        <SelectItem value="desktop-random">Random Desktop (Chrome, Firefox, Safari, Edge)</SelectItem>
+                        <SelectItem value="mobile-random">Random Mobile (Android &amp; iOS)</SelectItem>
+                        <SelectItem value="desktop-chrome">Desktop Chrome (Windows / macOS)</SelectItem>
+                        <SelectItem value="desktop-firefox">Desktop Firefox</SelectItem>
+                        <SelectItem value="mobile-android">Mobile Android (Galaxy / Pixel)</SelectItem>
+                        <SelectItem value="mobile-ios">Mobile Apple iOS (iPhone)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -482,9 +745,9 @@ export default function NewCampaignPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="human-random">Human-Random (Natural speed variation)</SelectItem>
-                        <SelectItem value="linear">Linear Smooth Scrolling</SelectItem>
-                        <SelectItem value="quick-scan">Quick Scan (Fast skim)</SelectItem>
+                        <SelectItem value="human-random">Human-Random (Natural scroll &amp; pauses)</SelectItem>
+                        <SelectItem value="slow-linear">Slow Linear Scroll</SelectItem>
+                        <SelectItem value="none">No Scrolling (Idle)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
