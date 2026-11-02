@@ -5,6 +5,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { ApifyClient } = require('apify-client');
 const cron = require('node-cron');
 const rateLimit = require('express-rate-limit');
+const webpush = require('web-push');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -242,6 +243,48 @@ class KeyManager {
 const keyManager = new KeyManager();
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Push Notifications Helper
+// ─────────────────────────────────────────────────────────────────────────────
+async function sendUserPushNotification(userId, title, body, url = '/campaigns') {
+  try {
+    const pubKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    const privKey = process.env.VAPID_PRIVATE_KEY;
+    if (!pubKey || !privKey) {
+      console.log('ℹ️ [Push] VAPID keys not configured in backend environment; skipping push notification.');
+      return;
+    }
+
+    const { data: userRec, error } = await supabase
+      .from('users')
+      .select('push_subscription')
+      .eq('id', userId)
+      .single();
+
+    if (error || !userRec || !userRec.push_subscription) {
+      return;
+    }
+
+    webpush.setVapidDetails(
+      process.env.VAPID_SUBJECT || 'mailto:support@trafficflow.io',
+      pubKey,
+      privKey
+    );
+
+    const payload = JSON.stringify({
+      title,
+      body,
+      icon: '/icon-192x192.png',
+      data: { url }
+    });
+
+    await webpush.sendNotification(userRec.push_subscription, payload);
+    console.log(`🔔 [Push] Successfully sent push notification to user ${userId}: "${title}"`);
+  } catch (err) {
+    console.warn(`⚠️ [Push] Error sending push notification to user ${userId}:`, err.message);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Traffic Batch Execution Worker
 // ─────────────────────────────────────────────────────────────────────────────
 let isWorkerRunning = false;
@@ -294,6 +337,16 @@ async function runTrafficBatchWorker() {
               visits_completed: newVisitsCompleted,
               ...(isFinished ? { status: 'completed', completed_at: new Date().toISOString() } : {})
             }).eq('id', batch.campaign_id);
+
+            if (isFinished) {
+              console.log(`🎉 [Worker] Campaign "${batch.traffic_campaigns.name}" completed in full (${newVisitsCompleted}/${batch.traffic_campaigns.total_visits} visits).`);
+              await sendUserPushNotification(
+                batch.traffic_campaigns.user_id,
+                '🎉 Campaign Completed!',
+                `Your traffic campaign "${batch.traffic_campaigns.name}" has completed! Delivered all ${batch.traffic_campaigns.total_visits.toLocaleString()} visits.`,
+                `/campaigns/${batch.campaign_id}`
+              );
+            }
 
             await keyManager.markSuccess(batch.apify_key_id);
 
