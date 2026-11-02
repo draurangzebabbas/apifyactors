@@ -190,11 +190,7 @@ function BillingContent() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-semibold">Enter Amount to Spend ($ USD)</label>
-                  <span className="text-xs text-muted-foreground">
-                    Integer only • Minimum ${MIN_AMOUNT_USD} ({(MIN_AMOUNT_USD * CREDITS_PER_DOLLAR).toLocaleString()} Credits) • No upper limit
-                  </span>
                 </div>
-
                 <div className="flex flex-col sm:flex-row items-center gap-3">
                   <div className="relative w-full sm:max-w-xs">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">
@@ -229,11 +225,10 @@ function BillingContent() {
                         key={amt}
                         type="button"
                         onClick={() => setAmountUsd(amt)}
-                        className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition ${
-                          amountUsd === amt
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-muted/70 hover:bg-muted text-foreground"
-                        }`}
+                        className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition ${amountUsd === amt
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/70 hover:bg-muted text-foreground"
+                          }`}
                       >
                         ${amt.toLocaleString()} ({(amt * CREDITS_PER_DOLLAR).toLocaleString()} Credits)
                       </button>

@@ -1,16 +1,19 @@
 {
-    "$schema": "https://apify.com/schemas/v1/output.ide.json",
     "actorOutputSchemaVersion": 1,
-    "title": "Adsterra Direct Link Tester — Output",
+    "title": "Organic SERP, Backlink & Direct Traffic Generator — Output",
+    "description": "Output schema defining the run results dataset and key-value store execution summary.",
+    "type": "object",
     "properties": {
         "results": {
             "type": "string",
-            "title": "Test Results (Dataset)",
+            "title": "Traffic Sessions Dataset",
+            "description": "Dataset containing all traffic session outcomes, landing URLs, dwell times, and engagement metrics.",
             "template": "{{links.apiDefaultDatasetUrl}}/items"
         },
         "runSummary": {
             "type": "string",
-            "title": "Run Summary (Key-Value Store)",
+            "title": "Run Summary Record",
+            "description": "Summary record of total sessions, success rate, and average dwell time.",
             "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/RUN_SUMMARY"
         }
     }
