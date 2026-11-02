@@ -32,13 +32,27 @@ async function handleOrderFulfillment(order: any) {
     return;
   }
 
-  const customerEmail: string | null = order.customer?.email || order.customerEmail || null;
+  const customerEmail: string | null = order.customer?.email || order.customerEmail || order.user?.email || null;
   const metadata = order.metadata || {};
-  let userId: string | null = order.customer?.externalId || order.customer?.external_id || metadata.user_id || null;
 
+  // 1. Highest priority: user_id from checkout session metadata
+  let userId: string | null = null;
+  if (metadata.user_id) {
+    const { data: u } = await supabase.from('users').select('id').eq('id', metadata.user_id).maybeSingle();
+    if (u?.id) userId = u.id;
+  }
+
+  // 2. Second priority: lookup user by customer email
   if (!userId && customerEmail) {
-    const { data: userRow } = await supabase.from('users').select('id').eq('email', customerEmail).single();
-    userId = userRow?.id || null;
+    const { data: u } = await supabase.from('users').select('id').eq('email', customerEmail).maybeSingle();
+    if (u?.id) userId = u.id;
+  }
+
+  // 3. Fallback: check customer external_id if it exists in users table
+  const externalId = order.customer?.externalId || order.customer?.external_id;
+  if (!userId && externalId) {
+    const { data: u } = await supabase.from('users').select('id').eq('id', externalId).maybeSingle();
+    if (u?.id) userId = u.id;
   }
 
   if (userId) {
@@ -91,11 +105,25 @@ async function handleOrderFulfillment(order: any) {
 
 async function handleSubscriptionEvent(s: any, isRevoke = false) {
   const supabase = createAdminClient();
-  const userId: string | null = s.customer?.externalId ?? s.customer?.external_id ?? null;
   const customerEmail: string | null = s.customer?.email ?? null;
   const polarCustomerId: string | null = s.customerId ?? s.customer_id ?? null;
   const planId: string | null = s.productId ?? s.product_id ?? null;
   const periodEnd: string | null = s.currentPeriodEnd ?? s.current_period_end ?? null;
+
+  let userId: string | null = null;
+  if (s.metadata?.user_id) {
+    const { data: u } = await supabase.from('users').select('id').eq('id', s.metadata.user_id).maybeSingle();
+    if (u?.id) userId = u.id;
+  }
+  if (!userId && customerEmail) {
+    const { data: u } = await supabase.from('users').select('id').eq('email', customerEmail).maybeSingle();
+    if (u?.id) userId = u.id;
+  }
+  if (!userId && (s.customer?.externalId || s.customer?.external_id)) {
+    const extId = s.customer?.externalId || s.customer?.external_id;
+    const { data: u } = await supabase.from('users').select('id').eq('id', extId).maybeSingle();
+    if (u?.id) userId = u.id;
+  }
 
   if (isRevoke) {
     await supabase.from('subscriptions').update({
