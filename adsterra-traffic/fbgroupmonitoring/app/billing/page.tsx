@@ -209,10 +209,20 @@ function BillingContent() {
                         const val = parseInt(e.target.value, 10)
                         setAmountUsd(isNaN(val) ? 0 : Math.floor(val))
                       }}
+                      onBlur={() => {
+                        if (!amountUsd || amountUsd < MIN_AMOUNT_USD) {
+                          setAmountUsd(MIN_AMOUNT_USD)
+                        }
+                      }}
                       placeholder="100"
                       className="pl-7 text-lg font-bold"
                     />
                   </div>
+                  {amountUsd > 0 && amountUsd < MIN_AMOUNT_USD && (
+                    <span className="text-xs text-destructive font-medium">
+                      Minimum is ${MIN_AMOUNT_USD} (10,000 Credits)
+                    </span>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {[10, 25, 50, 100, 250, 500, 1000].map(amt => (
                       <button
@@ -262,7 +272,9 @@ function BillingContent() {
                 className="w-full sm:w-auto min-w-[240px] font-semibold gap-2"
               >
                 <CreditCardIcon className="w-4 h-4" />
-                Proceed to Checkout (${(amountUsd || 0).toLocaleString()})
+                {amountUsd < MIN_AMOUNT_USD
+                  ? `Minimum $${MIN_AMOUNT_USD} Required`
+                  : `Proceed to Checkout ($${(amountUsd || 0).toLocaleString()})`}
               </Button>
             </CardFooter>
           </Card>
