@@ -87,11 +87,13 @@ export default function NewCampaignPage() {
 
   // Sync selected proxies to proxyUrlsText
   useEffect(() => {
-    if (savedProxies.length > 0 && selectedProxyIds.length > 0) {
+    if (savedProxies.length > 0) {
       const activeUrls = savedProxies
         .filter(p => selectedProxyIds.includes(p.id))
         .map(p => p.url)
       setProxyUrlsText(activeUrls.join("\n"))
+    } else {
+      setProxyUrlsText("")
     }
   }, [selectedProxyIds, savedProxies])
 
@@ -686,20 +688,24 @@ export default function NewCampaignPage() {
                         </div>
                       )}
 
-                      {/* Raw proxy string fallback preview */}
-                      <div className="space-y-1.5 pt-1">
-                        <Label htmlFor="proxy-urls" className="text-xs text-muted-foreground">
-                          Active Proxy Configuration (Auto-assembled):
-                        </Label>
-                        <Textarea
-                          id="proxy-urls"
-                          rows={2}
-                          value={proxyUrlsText}
-                          onChange={e => setProxyUrlsText(e.target.value)}
-                          placeholder="http://user:pass@pr.oxylabs.io:7777"
-                          className="font-mono text-xs"
-                          required
-                        />
+                      {/* Active Proxies Count Badge & Status */}
+                      <div className="flex items-center justify-between p-2.5 rounded-md bg-background/80 border text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-foreground">Selected Proxies for Campaign:</span>
+                          <Badge variant={selectedProxyIds.length > 0 ? "default" : "destructive"} className="text-[11px] h-5">
+                            {selectedProxyIds.length} Active
+                          </Badge>
+                        </div>
+                        {selectedProxyIds.length === 0 && (
+                          <span className="text-[11px] text-destructive font-medium">
+                            Please select at least one proxy above
+                          </span>
+                        )}
+                        {selectedProxyIds.length > 0 && (
+                          <span className="text-[11px] text-muted-foreground">
+                            Rotated automatically per visit session
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
