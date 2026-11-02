@@ -257,9 +257,9 @@ export default function CampaignDetailPage() {
           {/* Batch Timeline Table */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Apify Execution Batches</CardTitle>
+              <CardTitle className="text-lg">Delivery Batches & Schedule</CardTitle>
               <CardDescription>
-                Each batch executes up to 100 visits using rotating Apify keys and browser sessions.
+                Each batch safely delivers visits across rotating residential networks and browser profiles.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -271,7 +271,7 @@ export default function CampaignDetailPage() {
                     <TableHead>Target Visits</TableHead>
                     <TableHead>Delivered</TableHead>
                     <TableHead>Scheduled Time</TableHead>
-                    <TableHead>Apify Run</TableHead>
+                    <TableHead>Execution Reference</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -301,15 +301,9 @@ export default function CampaignDetailPage() {
                       </TableCell>
                       <TableCell>
                         {b.apify_run_id ? (
-                          <a
-                            href={`https://console.apify.com/view/runs/${b.apify_run_id}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-primary underline"
-                          >
-                            <span>{b.apify_run_id.slice(0, 8)}...</span>
-                            <ArrowSquareOutIcon className="w-3 h-3" />
-                          </a>
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {b.apify_run_id.slice(0, 10)}
+                          </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}

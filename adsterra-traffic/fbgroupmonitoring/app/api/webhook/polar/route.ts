@@ -92,7 +92,7 @@ async function handleOrderFulfillment(order: any) {
         user_id: userId,
         type: 'purchase',
         amount: creditsAwarded,
-        description: `Polar payment ($${amountUsd.toFixed(2)}) — ${creditsAwarded.toLocaleString()} traffic visits`,
+        description: `Credit Purchase ($${amountUsd.toFixed(2)}) — ${creditsAwarded.toLocaleString()} traffic visits`,
         polar_order_id: order.id
       });
 

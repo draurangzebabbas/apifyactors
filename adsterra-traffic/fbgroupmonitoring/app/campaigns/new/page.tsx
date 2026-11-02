@@ -334,8 +334,8 @@ export default function NewCampaignPage() {
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                     <div>
-                      <div className="text-muted-foreground text-xs">Total Apify Calls</div>
-                      <div className="font-semibold text-foreground">{numBatches} batches (max 100/call)</div>
+                      <div className="text-muted-foreground text-xs">Total Batches</div>
+                      <div className="font-semibold text-foreground">{numBatches} batches (max 100/batch)</div>
                     </div>
                     <div>
                       <div className="text-muted-foreground text-xs">Delivery Rate</div>

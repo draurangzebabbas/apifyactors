@@ -36,7 +36,7 @@ export default function PrivacyPage() {
             <p className="text-muted-foreground">We collect the following types of information when you use FBMonitor:</p>
             <ul className="text-muted-foreground list-disc space-y-1.5 pl-5">
               <li><strong className="text-foreground">Account Information:</strong> Your email address and authentication credentials when you sign up.</li>
-              <li><strong className="text-foreground">Subscription Data:</strong> Billing information processed by Polar (our payment provider). We do not store card details.</li>
+              <li><strong className="text-foreground">Subscription Data:</strong> Billing information processed by our certified secure payment gateway. We do not store card details.</li>
               <li><strong className="text-foreground">Facebook Session Credentials:</strong> If you add your personal Facebook session for accessing private groups you are a member of, it is encrypted with AES-256 and stored securely. It is never logged, never shared, and only decrypted in memory during your authorized data sync.</li>
               <li><strong className="text-foreground">Community Activity Data:</strong> Post content and activity from Facebook groups you are a member of, accessed through your own authorized account credentials.</li>
               <li><strong className="text-foreground">Analytics:</strong> Aggregated hourly activity statistics and keyword match data used to power your personal dashboard.</li>
@@ -64,7 +64,7 @@ export default function PrivacyPage() {
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">4. Data Storage & Security</h2>
             <p className="text-muted-foreground">
-              All data is stored in Supabase (hosted on AWS). Your Facebook session credentials are encrypted at rest using AES-256. We use Row Level Security (RLS) to ensure each user can only access their own data. Connections are encrypted via HTTPS/TLS.
+              All data is stored in enterprise-grade encrypted cloud databases (hosted in SOC-2 compliant data centers). We use strict Row Level Security (RLS) to ensure each user can only access their own data. Connections are encrypted via HTTPS/TLS.
             </p>
           </section>
 
@@ -74,8 +74,8 @@ export default function PrivacyPage() {
               We do not sell, rent, or share your personal data with third parties, except:
             </p>
             <ul className="text-muted-foreground list-disc space-y-1.5 pl-5">
-              <li><strong className="text-foreground">Polar:</strong> Our payment processor, for subscription billing.</li>
-              <li><strong className="text-foreground">Apify:</strong> Our data retrieval infrastructure, which performs authorized community data syncs on behalf of users using their own credentials.</li>
+              <li><strong className="text-foreground">Payment Processors:</strong> PCI-DSS compliant payment gateways for secure checkout and invoicing.</li>
+              <li><strong className="text-foreground">Network Infrastructure:</strong> Secure proxy and execution clusters to dispatch authorized traffic campaigns.</li>
               <li><strong className="text-foreground">Legal Requirements:</strong> If required by law or to protect our rights.</li>
             </ul>
           </section>

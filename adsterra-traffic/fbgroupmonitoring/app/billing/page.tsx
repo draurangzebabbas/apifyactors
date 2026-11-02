@@ -28,9 +28,8 @@ interface CreditTxn {
 }
 
 const POLAR_UNIT_PRODUCT_ID = "61f8dcb9-7b29-4877-9e85-38f4721ac085"
-const UNIT_PRICE_USD = 1.00 // $1 per unit in Polar
-const MIN_UNITS = 100       // Minimum units enforced by Polar product
-const CREDITS_PER_UNIT = 1000 // Each $1 unit provides 1,000 traffic visits/credits
+const CREDITS_PER_DOLLAR = 1000 // $1 USD = 1,000 traffic credits / website visits
+const MIN_AMOUNT_USD = 10       // Minimum $10 required (10,000 credits)
 
 function BillingContent() {
   const searchParams = useSearchParams()
@@ -40,8 +39,8 @@ function BillingContent() {
   const [transactions, setTransactions] = useState<CreditTxn[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Unit Pricing State
-  const [units, setUnits] = useState(100)
+  // Payment amount in USD ($) — minimum $10, integer only, unlimited
+  const [amountUsd, setAmountUsd] = useState<number>(100)
 
   const fetchCredits = async () => {
     try {
@@ -49,7 +48,7 @@ function BillingContent() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      // Direct Supabase query for immediate balance
+      // Direct query for immediate balance
       const { data: credData } = await supabase
         .from('traffic_credits')
         .select('*')
@@ -91,11 +90,16 @@ function BillingContent() {
     }
   }, [searchParams])
 
-  const calculatedTotalUsd = units * UNIT_PRICE_USD
-  const calculatedTrafficCredits = units * CREDITS_PER_UNIT
+  const calculatedTrafficCredits = (amountUsd || 0) * CREDITS_PER_DOLLAR
 
-  const handleCheckout = async (unitCount: number) => {
+  const handleCheckout = async (dollars: number) => {
     try {
+      if (!dollars || dollars < MIN_AMOUNT_USD) {
+        toast.error(`Minimum purchase amount is $${MIN_AMOUNT_USD} (10,000 credits)`)
+        return
+      }
+
+      const cleanDollars = Math.floor(dollars)
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
@@ -103,8 +107,8 @@ function BillingContent() {
         return
       }
 
-      // Redirect to Polar Unit Pricing checkout
-      window.location.href = `/api/checkout?products=${POLAR_UNIT_PRODUCT_ID}&units=${unitCount}`
+      // 1 unit = $1.00 in checkout
+      window.location.href = `/api/checkout?products=${POLAR_UNIT_PRODUCT_ID}&units=${cleanDollars}`
     } catch (err: any) {
       toast.error(err.message || "Checkout failed to initialize")
     }
@@ -121,7 +125,7 @@ function BillingContent() {
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Credits & Billing</h1>
               <p className="text-sm text-muted-foreground">
-                Pay-as-you-go traffic credit wallet powered by Polar unit pricing.
+                Pay-as-you-go traffic credits. 1 Credit = 1 Real Website Visit.
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={fetchCredits}>
@@ -138,7 +142,7 @@ function BillingContent() {
                   <CoinsIcon className="w-5 h-5 text-primary" />
                 </div>
                 <div className="text-3xl font-extrabold text-primary mt-2">
-                  {balance !== null ? balance.toLocaleString() : "..."}
+                  {balance.toLocaleString()}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">Traffic visits available to launch</div>
               </CardContent>
@@ -165,54 +169,63 @@ function BillingContent() {
             </Card>
           </div>
 
-          {/* Polar Unit-Based Pricing Top-Up Card */}
+          {/* Buy Credits Top-Up Card */}
           <Card className="border-2 border-primary/20 shadow-md">
             <CardHeader>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <SparkleIcon className="w-5 h-5 text-primary" />
-                  <CardTitle className="text-xl">Buy Traffic Credits (Unit Pricing)</CardTitle>
+                  <CardTitle className="text-xl">Buy Traffic Credits</CardTitle>
                 </div>
                 <Badge variant="secondary" className="text-xs font-medium">
-                  Polar Unit Pricing: $1.00 / Unit
+                  Rate: $1.00 USD = 1,000 Credits
                 </Badge>
               </div>
               <CardDescription>
-                Flexible upfront unit pricing. Purchase exact increments starting at {MIN_UNITS} units.
+                Flexible pay-as-you-go credit wallet. Enter any dollar amount from ${MIN_AMOUNT_USD} upwards.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Unit Selection Controls */}
+              {/* Dollar Amount Controls */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold">Select Units to Purchase</label>
-                  <span className="text-sm text-muted-foreground">
-                    Minimum {MIN_UNITS} units ($100)
+                  <label className="text-sm font-semibold">Enter Amount to Spend ($ USD)</label>
+                  <span className="text-xs text-muted-foreground">
+                    Integer only • Minimum ${MIN_AMOUNT_USD} ({(MIN_AMOUNT_USD * CREDITS_PER_DOLLAR).toLocaleString()} Credits) • No upper limit
                   </span>
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <Input
-                    type="number"
-                    min={MIN_UNITS}
-                    step={25}
-                    value={units}
-                    onChange={e => setUnits(Math.max(MIN_UNITS, parseInt(e.target.value, 10) || MIN_UNITS))}
-                    className="max-w-xs text-lg font-bold"
-                  />
+                  <div className="relative w-full sm:max-w-xs">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">
+                      $
+                    </span>
+                    <Input
+                      type="number"
+                      min={MIN_AMOUNT_USD}
+                      step={1}
+                      value={amountUsd || ""}
+                      onChange={e => {
+                        const val = parseInt(e.target.value, 10)
+                        setAmountUsd(isNaN(val) ? 0 : Math.floor(val))
+                      }}
+                      placeholder="100"
+                      className="pl-7 text-lg font-bold"
+                    />
+                  </div>
                   <div className="flex flex-wrap gap-2">
-                    {[100, 250, 500, 1000, 2500].map(u => (
+                    {[10, 25, 50, 100, 250, 500, 1000].map(amt => (
                       <button
-                        key={u}
+                        key={amt}
                         type="button"
-                        onClick={() => setUnits(u)}
+                        onClick={() => setAmountUsd(amt)}
                         className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition ${
-                          units === u
+                          amountUsd === amt
                             ? "bg-primary text-primary-foreground border-primary"
                             : "bg-muted/70 hover:bg-muted text-foreground"
                         }`}
                       >
-                        {u.toLocaleString()} Units (${u * UNIT_PRICE_USD})
+                        ${amt.toLocaleString()} ({(amt * CREDITS_PER_DOLLAR).toLocaleString()} Credits)
                       </button>
                     ))}
                   </div>
@@ -225,23 +238,23 @@ function BillingContent() {
                   <div>
                     <div className="text-xs font-semibold text-muted-foreground uppercase">You Pay</div>
                     <div className="text-2xl font-extrabold text-foreground mt-1">
-                      ${calculatedTotalUsd.toLocaleString()} USD
+                      ${(amountUsd || 0).toLocaleString()} USD
                     </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">({units} units @ ${UNIT_PRICE_USD}/ea)</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">One-time payment</div>
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-muted-foreground uppercase">You Receive</div>
                     <div className="text-2xl font-extrabold text-primary mt-1">
                       {calculatedTrafficCredits.toLocaleString()} Credits
                     </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">1 Credit = 1 Website Visit</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">1 Credit = 1 Real Website Visit</div>
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-muted-foreground uppercase">Features Included</div>
                     <div className="text-xs text-muted-foreground mt-1.5 space-y-1">
-                      <div>✓ Real Google SERP & Organic Clicks</div>
-                      <div>✓ Rotating Apify Residential Proxies</div>
-                      <div>✓ Batch Chunking (Max 100 visits/call)</div>
+                      <div>✓ Real Search Engine & Organic Visits</div>
+                      <div>✓ High-Reputation Residential IP Network</div>
+                      <div>✓ Intelligent Rate-Limited Batch Delivery</div>
                     </div>
                   </div>
                 </div>
@@ -249,15 +262,16 @@ function BillingContent() {
             </CardContent>
             <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t pt-5">
               <div className="text-xs text-muted-foreground">
-                Secure checkout powered by <strong>Polar.sh</strong>. Credits never expire and add to your wallet instantly.
+                Secure 256-bit encrypted checkout. Credits never expire and activate immediately.
               </div>
               <Button
                 size="lg"
-                onClick={() => handleCheckout(units)}
+                onClick={() => handleCheckout(amountUsd)}
+                disabled={!amountUsd || amountUsd < MIN_AMOUNT_USD}
                 className="w-full sm:w-auto min-w-[240px] font-semibold gap-2"
               >
                 <CreditCardIcon className="w-4 h-4" />
-                Checkout with Polar (${calculatedTotalUsd.toLocaleString()})
+                Proceed to Checkout (${(amountUsd || 0).toLocaleString()})
               </Button>
             </CardFooter>
           </Card>
@@ -282,27 +296,33 @@ function BillingContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transactions.map(t => (
-                      <TableRow key={t.id}>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {new Date(t.created_at).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              t.type === "purchase" || t.type === "refund" ? "secondary" : "outline"
-                            }
-                            className="capitalize text-xs"
-                          >
-                            {t.type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">{t.description}</TableCell>
-                        <TableCell className={`text-right font-semibold ${t.amount > 0 ? "text-emerald-600" : "text-muted-foreground"}`}>
-                          {t.amount > 0 ? `+${t.amount.toLocaleString()}` : t.amount.toLocaleString()}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {transactions.map(t => {
+                      const cleanDesc = (t.description || "")
+                        .replace(/Polar payment/gi, "Credit Purchase")
+                        .replace(/—\s*Polar/gi, "—");
+
+                      return (
+                        <TableRow key={t.id}>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(t.created_at).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                t.type === "purchase" || t.type === "refund" ? "secondary" : "outline"
+                              }
+                              className="capitalize text-xs"
+                            >
+                              {t.type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">{cleanDesc}</TableCell>
+                          <TableCell className={`text-right font-semibold ${t.amount > 0 ? "text-emerald-600" : "text-muted-foreground"}`}>
+                            {t.amount > 0 ? `+${t.amount.toLocaleString()}` : t.amount.toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}

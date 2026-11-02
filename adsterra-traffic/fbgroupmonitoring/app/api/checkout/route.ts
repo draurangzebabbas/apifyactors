@@ -22,7 +22,7 @@ export const GET = async (req: Request) => {
     const url = new URL(req.url);
     const productId = url.searchParams.get("products") || url.searchParams.get("productId") || POLAR_UNIT_PRODUCT_ID;
     const unitsParam = url.searchParams.get("units");
-    const units = unitsParam ? parseInt(unitsParam, 10) : 100;
+    const units = Math.max(10, unitsParam ? parseInt(unitsParam, 10) : 100);
 
     // Dynamically resolve base URL from incoming request headers
     const proto = req.headers.get("x-forwarded-proto") || "https";

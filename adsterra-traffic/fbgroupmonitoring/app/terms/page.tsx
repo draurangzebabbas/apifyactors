@@ -67,7 +67,7 @@ export default function TermsPage() {
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">5. Subscriptions & Billing</h2>
             <ul className="text-muted-foreground list-disc space-y-1.5 pl-5">
-              <li>Subscriptions are billed monthly through Polar, our payment provider.</li>
+              <li>Payments and billing are processed through our certified secure payment gateway.</li>
               <li>You may cancel at any time. Your access continues until the end of the current billing period.</li>
               <li>We do not offer refunds for partial billing periods unless required by law.</li>
               <li>We reserve the right to change pricing with 30 days notice to active subscribers.</li>
