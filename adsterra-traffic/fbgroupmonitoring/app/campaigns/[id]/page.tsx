@@ -231,7 +231,7 @@ export default function CampaignDetailPage() {
               <CardContent className="pt-6">
                 <div className="text-xs text-muted-foreground uppercase font-semibold">Traffic Channel</div>
                 <div className="text-lg font-bold mt-1 capitalize">
-                  {campaign.traffic_source === "serp_google" ? "Google SERP" : "Referral"}
+                  {campaign.traffic_source === "serp_google" ? "Google SERP" : campaign.traffic_source === "direct" ? "Direct" : campaign.traffic_source === "backlink" ? "Backlink" : "Referral"}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {campaign.dwell_time_min_seconds}s - {campaign.dwell_time_max_seconds}s dwell

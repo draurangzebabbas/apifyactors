@@ -319,8 +319,25 @@ async function runTrafficBatchWorker() {
           if (!run) continue;
 
           if (run.status === 'SUCCEEDED') {
-            const completedVisits = batch.visits_target;
-            console.log(`✅ [Worker] Batch #${batch.batch_number} (run ${batch.apify_run_id}) succeeded! Target: ${completedVisits}`);
+            // Read the OUTPUT from key-value store for actual delivered visits
+            let completedVisits = batch.visits_target; // fallback
+            try {
+              const kvStoreId = run.defaultKeyValueStoreId;
+              if (kvStoreId) {
+                const kvRes = await fetch(
+                  `https://api.apify.com/v2/key-value-stores/${kvStoreId}/records/OUTPUT?token=${keyObj.key_value}`
+                );
+                if (kvRes.ok) {
+                  const kvOutput = await kvRes.json();
+                  if (typeof kvOutput.successfulVisitsDelivered === 'number') {
+                    completedVisits = kvOutput.successfulVisitsDelivered;
+                  }
+                }
+              }
+            } catch (kvErr) {
+              console.warn(`[Worker] Could not read KV OUTPUT for batch #${batch.batch_number}:`, kvErr.message);
+            }
+            console.log(`✅ [Worker] Batch #${batch.batch_number} (run ${batch.apify_run_id}) succeeded! Delivered: ${completedVisits}/${batch.visits_target}`);
 
             await supabase.from('traffic_batches').update({
               status: 'completed',
