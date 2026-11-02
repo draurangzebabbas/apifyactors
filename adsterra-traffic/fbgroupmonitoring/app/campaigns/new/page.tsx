@@ -30,7 +30,7 @@ import Link from "next/link"
 
 export default function NewCampaignPage() {
   const router = useRouter()
-  const [balance, setBalance] = useState<number | null>(null)
+  const [balance, setBalance] = useState<number>(0)
   const [loading, setLoading] = useState(false)
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"
 
@@ -54,7 +54,7 @@ export default function NewCampaignPage() {
   const [enableInternal, setEnableInternal] = useState(true)
   const [maxInternalPages, setMaxInternalPages] = useState(2)
 
-  // Fetch balance
+  // Fetch balance directly from Supabase
   useEffect(() => {
     async function loadBalance() {
       try {
@@ -62,19 +62,21 @@ export default function NewCampaignPage() {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) return
 
-        const res = await fetch(`${backendUrl}/api/credits`, {
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        })
-        if (res.ok) {
-          const data = await res.json()
-          setBalance(data.balance ?? 0)
+        const { data: credData } = await supabase
+          .from('traffic_credits')
+          .select('balance')
+          .eq('user_id', session.user.id)
+          .maybeSingle()
+
+        if (credData?.balance !== undefined) {
+          setBalance(credData.balance)
         }
       } catch (e) {
         console.error("Failed to load credits", e)
       }
     }
     loadBalance()
-  }, [backendUrl])
+  }, [])
 
   // Helpers
   const addUrlRow = () => setUrls([...urls, "https://"])
@@ -190,7 +192,7 @@ export default function NewCampaignPage() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-3 py-1.5 rounded-lg text-sm font-semibold">
                 <CoinsIcon className="w-4 h-4" />
-                <span>{balance !== null ? balance.toLocaleString() : "..."} Credits Available</span>
+                <span>{balance.toLocaleString()} Credits Available</span>
               </div>
               <Link href="/billing">
                 <Button size="sm" variant="outline">
@@ -348,7 +350,7 @@ export default function NewCampaignPage() {
                     <div>
                       <div className="text-muted-foreground text-xs">Balance After</div>
                       <div className={`font-semibold ${hasEnoughCredits ? "text-emerald-600" : "text-destructive"}`}>
-                        {balance !== null ? (balance - visitsCost).toLocaleString() : "..."}
+                        {(balance - visitsCost).toLocaleString()}
                       </div>
                     </div>
                   </div>

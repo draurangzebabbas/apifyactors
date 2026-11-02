@@ -234,7 +234,7 @@ function BillingContent() {
 
               {/* Conversion Breakdown Pill */}
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center sm:text-left">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center sm:text-left">
                   <div>
                     <div className="text-xs font-semibold text-muted-foreground uppercase">You Pay</div>
                     <div className="text-2xl font-extrabold text-foreground mt-1">
@@ -246,15 +246,6 @@ function BillingContent() {
                     <div className="text-xs font-semibold text-muted-foreground uppercase">You Receive</div>
                     <div className="text-2xl font-extrabold text-primary mt-1">
                       {calculatedTrafficCredits.toLocaleString()} Credits
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">1 Credit = 1 Real Website Visit</div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold text-muted-foreground uppercase">Features Included</div>
-                    <div className="text-xs text-muted-foreground mt-1.5 space-y-1">
-                      <div>✓ Real Search Engine & Organic Visits</div>
-                      <div>✓ High-Reputation Residential IP Network</div>
-                      <div>✓ Intelligent Rate-Limited Batch Delivery</div>
                     </div>
                   </div>
                 </div>
