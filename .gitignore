@@ -13,6 +13,8 @@ apify_storage/
 # Environment variables
 .env
 .env.*
+environment_variabled.md
+*.env*
 !.env.render
 !.env.vercel
 !.env.example

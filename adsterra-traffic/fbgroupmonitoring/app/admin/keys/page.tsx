@@ -150,9 +150,9 @@ export default function AdminKeysPage() {
             provider: provider
           }))
 
-          const response = await fetch(`${backendUrl}/api/admin/keys`, {
+          const response = await fetch('/api/admin/keys', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ keys: keysToInsert }),
           })
           const data = await response.json()
@@ -207,9 +207,9 @@ export default function AdminKeysPage() {
         provider: provider
       }))
 
-      const response = await fetch(`${backendUrl}/api/admin/keys`, {
+      const response = await fetch('/api/admin/keys', {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ keys: keysToInsert }),
       })
 
@@ -248,9 +248,9 @@ export default function AdminKeysPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error("Not authenticated")
 
-      const response = await fetch(`${backendUrl}/api/admin/keys`, {
+      const response = await fetch('/api/admin/keys', {
         method: "DELETE",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ keyIds: Array.from(selectedIds) }),
       })
 
@@ -278,9 +278,9 @@ export default function AdminKeysPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error("Not authenticated")
 
-      const response = await fetch(`${backendUrl}/api/admin/keys/health`, {
+      const response = await fetch('/api/admin/keys/health', {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ keyIds: Array.from(selectedIds) }),
       })
 

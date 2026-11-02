@@ -185,9 +185,15 @@ To promote a user to admin (gives access to `/admin` dashboard):
 2. Go to **Supabase Dashboard → SQL Editor** and run:
 
 ```sql
+-- Option A: Promote by email
 INSERT INTO public.admin_users (user_id)
-SELECT id FROM auth.users WHERE email = 'your-admin@email.com'
-ON CONFLICT DO NOTHING;
+SELECT id FROM public.users WHERE LOWER(email) = LOWER('your-admin@email.com')
+ON CONFLICT (user_id) DO NOTHING;
+
+-- Option B: Promote directly by User ID
+INSERT INTO public.admin_users (user_id)
+VALUES ('your-user-id-from-auth-users')
+ON CONFLICT (user_id) DO NOTHING;
 ```
 
 ---

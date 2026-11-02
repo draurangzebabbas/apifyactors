@@ -36,7 +36,7 @@ async function handleOrderFulfillment(order: any) {
   if (userId) {
     // Polar amounts are in cents (e.g. $100.00 = 10000 cents)
     const amountUsd = (order.amount || order.total_amount || 0) / 100;
-    
+
     // 1 Unit ($1) = 1,000 Traffic Visits / Credits
     const unitsPurchased = order.units || order.items?.[0]?.units || (metadata.units ? parseInt(metadata.units, 10) : null);
     const creditsAwarded = unitsPurchased

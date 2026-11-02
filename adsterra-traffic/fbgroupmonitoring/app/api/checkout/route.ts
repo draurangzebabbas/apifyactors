@@ -1,4 +1,3 @@
-import { Polar } from "@polar-sh/sdk";
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -33,13 +32,8 @@ export const GET = async (req: Request) => {
     const successUrl = process.env.POLAR_SUCCESS_URL || `${origin}/billing?status=success&checkout_id={CHECKOUT_ID}`;
     const returnUrl = process.env.NEXT_PUBLIC_APP_URL || `${origin}/billing`;
 
-    const serverMode: "sandbox" | "production" = 
-      process.env.POLAR_SERVER === "sandbox" ? "sandbox" : "production";
-
-    const polar = new Polar({
-      accessToken: token,
-      server: serverMode
-    });
+    const serverMode = process.env.POLAR_SERVER === "sandbox" ? "sandbox" : "production";
+    const apiBase = serverMode === "sandbox" ? "https://sandbox-api.polar.sh" : "https://api.polar.sh";
 
     const metadata: Record<string, string | number> = {
       units,
@@ -49,27 +43,42 @@ export const GET = async (req: Request) => {
       metadata.user_id = user.id;
     }
 
-    const session = await polar.checkouts.create({
-      products: [productId],
-      successUrl,
-      returnUrl,
-      externalCustomerId: user?.id,
-      customerEmail: user?.email || undefined,
-      metadata
+    // Call Polar REST API directly to avoid SDK schema validation mismatches
+    const polarRes = await fetch(`${apiBase}/v1/checkouts/`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        products: [productId],
+        success_url: successUrl,
+        return_url: returnUrl,
+        external_customer_id: user?.id || undefined,
+        customer_email: user?.email || undefined,
+        metadata
+      })
     });
 
-    if (session?.url) {
-      return NextResponse.redirect(session.url, 303);
+    const data = await polarRes.json().catch(() => null);
+
+    if (polarRes.ok && data?.url) {
+      return NextResponse.redirect(data.url, 303);
     }
 
-    return NextResponse.json({ error: "No checkout URL returned by Polar" }, { status: 500 });
+    console.error("Polar Checkout API error:", { status: polarRes.status, data });
+    return NextResponse.json({
+      error: "Polar Checkout Failed",
+      status: polarRes.status,
+      message: data?.detail || data?.error || "Failed to create checkout with Polar",
+      details: data
+    }, { status: 400 });
   } catch (err: any) {
     console.error("Polar Checkout Creation Error:", err);
     return NextResponse.json({
       error: "Polar Checkout Failed",
       message: err.message || "Failed to create checkout session with Polar",
-      details: err.detail || err.body || String(err),
-      hint: "Make sure POLAR_ACCESS_TOKEN is valid and active in your Polar dashboard."
+      details: String(err)
     }, { status: 400 });
   }
 };
