@@ -248,9 +248,14 @@ async function typeQueryAndSearch(page, searchInput, query, waitMs = 20000, take
     await searchInput.fill('');
     await sleep(randomBetween(100, 200));
 
-    // Type query naturally character-by-character
-    await searchInput.pressSequentially(query, { delay: randomBetween(30, 65) });
-    await sleep(randomBetween(400, 800));
+    // Type query naturally character-by-character with realistic cadence
+    for (const char of query) {
+        await searchInput.pressSequentially(char, { delay: randomBetween(40, 90) });
+        if (char === ' ' || char === '/') {
+            await sleep(randomBetween(100, 220));
+        }
+    }
+    await sleep(randomBetween(500, 1000));
 
     if (takeScreenshot) {
         await takeScreenshot('serp_query_typed');

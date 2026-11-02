@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { detectPlatform } from '../src/backlink.js';
-import { buildContextOptions, getStealthInitScript, resolveDeviceProfile } from '../src/devices.js';
+import { buildContextOptions, getStealthInitScript, resolveDeviceProfile, resolveProxyGeo } from '../src/devices.js';
 import { randomBetween, sleep } from '../src/humanizer.js';
 import { rotateResidentialProxyUrl } from '../src/proxyRotator.js';
 import { PRESET_REFERRERS, resolveReferrer } from '../src/referrers.js';
@@ -123,6 +123,20 @@ describe('Device & User Agent Emulation', () => {
         expect(opts.isMobile).toBe(true);
         expect(opts.hasTouch).toBe(true);
         expect(opts.extraHTTPHeaders['sec-ch-ua-platform']).toBe('"Android"');
+    });
+
+    it('should resolve proxy country to matching timezone and locale', () => {
+        const gb = resolveProxyGeo('http://customer-resi_123-cc-gb-sessid-1:pass@pr.oxylabs.io:7777');
+        expect(gb.locale).toBe('en-GB');
+        expect(gb.timezoneId).toBe('Europe/London');
+
+        const ca = resolveProxyGeo('http://customer-resi_123-cc-ca-sessid-1:pass@pr.oxylabs.io:7777');
+        expect(ca.locale).toBe('en-CA');
+        expect(ca.timezoneId).toBe('America/Toronto');
+
+        const us = resolveProxyGeo('http://customer-resi_123-cc-us-sessid-1:pass@pr.oxylabs.io:7777');
+        expect(us.locale).toBe('en-US');
+        expect(us.timezoneId).toBe('America/New_York');
     });
 });
 

@@ -239,6 +239,34 @@ export function resolveDeviceProfile(deviceSelection = 'random', customUserAgent
 }
 
 /**
+ * Infers matching browser locale and timezone from proxy country tags (e.g. -cc-gb, -cc-us, -cc-ca).
+ * Prevents Google BotGuard from detecting IP vs. browser timezone mismatches.
+ *
+ * @param {string} proxyUrl
+ * @returns {{ locale: string, timezoneId: string }}
+ */
+export function resolveProxyGeo(proxyUrl = '') {
+    const raw = String(proxyUrl || '').toLowerCase();
+
+    if (raw.includes('-cc-gb') || raw.includes('-country-gb') || raw.includes('country=gb')) {
+        return { locale: 'en-GB', timezoneId: 'Europe/London' };
+    }
+    if (raw.includes('-cc-ca') || raw.includes('-country-ca') || raw.includes('country=ca')) {
+        return { locale: 'en-CA', timezoneId: 'America/Toronto' };
+    }
+    if (raw.includes('-cc-au') || raw.includes('-country-au') || raw.includes('country=au')) {
+        return { locale: 'en-AU', timezoneId: 'Australia/Sydney' };
+    }
+    if (raw.includes('-cc-de') || raw.includes('-country-de') || raw.includes('country=de')) {
+        return { locale: 'de-DE', timezoneId: 'Europe/Berlin' };
+    }
+    if (raw.includes('-cc-fr') || raw.includes('-country-fr') || raw.includes('country=fr')) {
+        return { locale: 'fr-FR', timezoneId: 'Europe/Paris' };
+    }
+    return { locale: 'en-US', timezoneId: 'America/New_York' };
+}
+
+/**
  * Builds Playwright browser context options matching the chosen device profile.
  *
  * @param {object} profile - Device profile from resolveDeviceProfile()

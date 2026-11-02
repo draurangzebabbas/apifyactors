@@ -14,7 +14,7 @@ import { chromium } from 'playwright';
 
 import { executeBacklinkTraffic } from './backlink.js';
 import { detectAds, getPageMetadata, isPageBlank } from './detector.js';
-import { buildContextOptions, getStealthInitScript, resolveDeviceProfile } from './devices.js';
+import { buildContextOptions, getStealthInitScript, resolveDeviceProfile, resolveProxyGeo } from './devices.js';
 import { humanRandomScroll, linearSlowScroll, randomBetween, sleep } from './humanizer.js';
 import { executeInternalNavigation } from './internalNav.js';
 import { rotateResidentialProxyUrl } from './proxyRotator.js';
@@ -439,7 +439,8 @@ async function runSession(task) {
                 args: launchArgs,
             });
 
-            const ctxOpts = buildContextOptions(deviceProfile, 'en-US', 'America/New_York');
+            const proxyGeo = resolveProxyGeo(proxyUrl);
+            const ctxOpts = buildContextOptions(deviceProfile, proxyGeo.locale, proxyGeo.timezoneId);
             if (launchProxy) {
                 ctxOpts.proxy = launchProxy;
             }
