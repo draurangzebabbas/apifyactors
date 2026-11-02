@@ -1,0 +1,27 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@composio/core": "^0.22.0",
+    "@supabase/server": "^1.9.2",
+    "@supabase/supabase-js": "^2.48.1",
+    "apify-client": "^2.11.0",
+    "composio-core": "^0.5.39",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.6.2",
+    "node-cron": "^4.6.0",
+    "node-fetch": "^3.3.2",
+    "web-push": "^3.6.7"
+  }
+}

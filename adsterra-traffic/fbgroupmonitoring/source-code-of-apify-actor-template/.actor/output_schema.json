@@ -1,0 +1,26 @@
+{
+    "$schema": "https://apify.com/schemas/v1/output.ide.json",
+    "actorOutputSchemaVersion": 1,
+    "title": "Facebook Post Auto Commenter Output",
+    "description": "Output links and artifacts produced by the Facebook Post Auto Commenter.",
+    "properties": {
+        "results": {
+            "title": "Dataset Results",
+            "type": "string",
+            "description": "Dataset containing posted comment results.",
+            "template": "{{links.apiDefaultDatasetUrl}}/items"
+        },
+        "output": {
+            "title": "Output Record",
+            "type": "string",
+            "description": "JSON record of the run result.",
+            "template": "{{links.apiDefaultKeyValueStoreRecordUrl}}/OUTPUT"
+        },
+        "proofScreenshot": {
+            "title": "Proof Screenshot",
+            "type": "string",
+            "description": "Screenshot confirming the comment was submitted.",
+            "template": "{{links.apiDefaultKeyValueStoreRecordUrl}}/PROOF_SCREENSHOT.jpg"
+        }
+    }
+}
