@@ -52,6 +52,7 @@ export const GET = async (req: Request) => {
       },
       body: JSON.stringify({
         products: [productId],
+        units: units,
         success_url: successUrl,
         return_url: returnUrl,
         external_customer_id: user?.id || undefined,

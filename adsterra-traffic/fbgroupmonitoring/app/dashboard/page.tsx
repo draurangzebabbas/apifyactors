@@ -34,9 +34,8 @@ interface Campaign {
 
 export default function DashboardPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
-  const [balance, setBalance] = useState<number | null>(null)
+  const [balance, setBalance] = useState<number>(0)
   const [loading, setLoading] = useState(true)
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"
 
   const fetchData = async () => {
     try {
@@ -44,23 +43,24 @@ export default function DashboardPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      const [campRes, credRes] = await Promise.all([
-        fetch(`${backendUrl}/api/campaigns`, {
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        }),
-        fetch(`${backendUrl}/api/credits`, {
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        })
-      ])
+      // Read credits directly from Supabase
+      const { data: credData } = await supabase
+        .from('traffic_credits')
+        .select('balance')
+        .eq('user_id', session.user.id)
+        .maybeSingle()
 
-      if (campRes.ok) {
-        const campData = await campRes.json()
-        setCampaigns(campData.campaigns || [])
-      }
+      setBalance(credData?.balance ?? 0)
 
-      if (credRes.ok) {
-        const credData = await credRes.json()
-        setBalance(credData.balance ?? 0)
+      // Read campaigns directly from Supabase
+      const { data: campData } = await supabase
+        .from('traffic_campaigns')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+
+      if (campData) {
+        setCampaigns(campData)
       }
     } catch (e) {
       console.error("Dashboard fetch error", e)
@@ -71,7 +71,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData()
-  }, [backendUrl])
+  }, [])
 
   const activeCampaigns = campaigns.filter(c => c.status === "running")
   const completedCampaigns = campaigns.filter(c => c.status === "completed")
@@ -134,7 +134,7 @@ export default function DashboardPage() {
                   <CoinsIcon className="w-4 h-4 text-amber-500" />
                 </div>
                 <div className="text-2xl font-bold mt-2">
-                  {balance !== null ? balance.toLocaleString() : "..."}
+                  {loading ? "..." : balance.toLocaleString()}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   <Link href="/billing" className="text-primary hover:underline">Top up credits &rarr;</Link>

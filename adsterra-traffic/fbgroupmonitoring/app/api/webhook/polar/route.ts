@@ -46,17 +46,25 @@ async function handleOrderFulfillment(order: any) {
     if (creditsAwarded > 0) {
       const { data: currentCredits } = await supabase
         .from('traffic_credits')
-        .select('balance, total_purchased')
+        .select('id, balance, total_purchased')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
-      const prevBalance = currentCredits?.balance || 0;
-      await supabase.from('traffic_credits').upsert({
-        user_id: userId,
-        balance: prevBalance + creditsAwarded,
-        total_purchased: (currentCredits?.total_purchased || 0) + creditsAwarded,
-        updated_at: new Date().toISOString()
-      });
+      if (currentCredits) {
+        const prevBalance = currentCredits.balance || 0;
+        await supabase.from('traffic_credits').update({
+          balance: prevBalance + creditsAwarded,
+          total_purchased: (currentCredits.total_purchased || 0) + creditsAwarded,
+          updated_at: new Date().toISOString()
+        }).eq('id', currentCredits.id);
+      } else {
+        await supabase.from('traffic_credits').insert({
+          user_id: userId,
+          balance: creditsAwarded,
+          total_purchased: creditsAwarded,
+          updated_at: new Date().toISOString()
+        });
+      }
 
       await supabase.from('credit_transactions').insert({
         user_id: userId,
@@ -74,7 +82,7 @@ async function handleOrderFulfillment(order: any) {
 }
 
 export const POST = Webhooks({
-  webhookSecret: (process.env.POLAR_WEBHOOK_SECRET || 'whsec_placeholder') as string,
+  webhookSecret: (process.env.POLAR_WEBHOOK_SECRET || 'whsec_vuOa9OWNc3ZGyv4YYAuRlExRpr8ki7r7BJkFb3xtr5n') as string,
   onPayload: async (payload: any) => {
     console.log("Polar webhook payload received:", payload.type);
   },
