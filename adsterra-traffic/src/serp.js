@@ -346,7 +346,7 @@ async function loadSerpDirectly(page, query, perAttemptMs, maxAttempts = 1, take
  * Handles direct links, Google /url?q= redirects, Google /goto? encrypted redirects,
  * breadcrumbs, site titles, and snippet text.
  */
-async function findTargetInSerp(page, targetUrl, rankOffset = 0) {
+export async function findTargetInSerp(page, targetUrl, rankOffset = 0) {
     try {
         const targetObj = new URL(targetUrl);
         const targetHost = targetObj.hostname.replace(/^www\./, '').toLowerCase();
@@ -358,11 +358,14 @@ async function findTargetInSerp(page, targetUrl, rankOffset = 0) {
         const targetSlug = pathSegments.length > 0 ? pathSegments[pathSegments.length - 1] : '';
 
         const match = await page.evaluate(
-            ({ host, slug, segments, offset }) => {
-                const isExcluded = (href, text) => {
-                    const lowerText = (text || '').toLowerCase();
+            ({ host, slug, segments, cleanPath: targetCleanPath, offset }) => {
+                const isExcluded = (href, title, anchorText) => {
                     const lowerHref = (href || '').toLowerCase();
-                    return (
+                    const lowerTitle = (title || '').toLowerCase();
+                    const lowerAnchor = (anchorText || '').toLowerCase();
+
+                    // Exclude internal Google navigation and services
+                    if (
                         lowerHref.includes('google.com/webmasters') ||
                         lowerHref.includes('support.google.com') ||
                         lowerHref.includes('accounts.google.com') ||
@@ -370,14 +373,28 @@ async function findTargetInSerp(page, targetUrl, rankOffset = 0) {
                         lowerHref.includes('maps.google.com') ||
                         lowerHref.includes('google.com/search') ||
                         lowerHref.includes('google.com/preferences') ||
-                        lowerText.includes('try google search console') ||
-                        lowerText.includes('google promotion')
-                    );
+                        lowerHref.includes('googleadservices.com')
+                    ) {
+                        return true;
+                    }
+
+                    // Exclude Google Search Console promo banner link itself
+                    // Note: check anchor's OWN text only; do NOT check parent container
+                    if (
+                        lowerTitle.includes('try google search console') ||
+                        lowerAnchor.includes('try google search console') ||
+                        lowerTitle === 'google promotion' ||
+                        lowerAnchor === 'google promotion'
+                    ) {
+                        return true;
+                    }
+
+                    return false;
                 };
 
                 const candidates = Array.from(
                     document.querySelectorAll(
-                        'a[jsname="UWckNb"], #search a[href], #rso a[href], div.g a[href], div.MjjYud a[href], div[data-hveid] a[href], a:has(h3), a:has(cite), a.zReHs, main a[href]',
+                        'a[jsname="UWckNb"], #search a[href], #rso a[href], div.g a[href], div.MjjYud a[href], div[data-hveid] a[href], a:has(h3), a:has([role="heading"]), a:has(cite), a.zReHs, [role="main"] a[href], main a[href]',
                     ),
                 );
 
@@ -389,9 +406,11 @@ async function findTargetInSerp(page, targetUrl, rankOffset = 0) {
                     const isScriptUrl = href.toLowerCase().slice(0, 11) === ['java', 'script:'].join('');
                     if (!href || href === '#' || isScriptUrl) continue;
 
-                    const h3 = a.querySelector('h3') || a.closest('div')?.querySelector('h3');
+                    const heading =
+                        a.querySelector('h3, [role="heading"]') ||
+                        a.closest('div')?.querySelector('h3, [role="heading"]');
                     const text = (a.innerText || '').trim();
-                    const title = (h3 ? h3.innerText : text).trim();
+                    const title = (heading ? heading.innerText : text).trim();
 
                     const container =
                         a.closest('div.MjjYud, div.g, div[data-hveid], jscontroller, div[data-sokoban-container]') ||
@@ -399,7 +418,7 @@ async function findTargetInSerp(page, targetUrl, rankOffset = 0) {
                     const containerText = (container ? container.innerText : '').toLowerCase();
                     const anchorText = text.toLowerCase();
 
-                    if (isExcluded(href, `${title} ${containerText}`)) continue;
+                    if (isExcluded(href, title, anchorText)) continue;
 
                     const dedupeKey = title || href;
                     if (seenLinks.has(dedupeKey)) continue;
@@ -425,7 +444,8 @@ async function findTargetInSerp(page, targetUrl, rankOffset = 0) {
                         const parsed = new URL(cleanHref, window.location.origin);
                         const parsedHost = parsed.hostname.replace(/^www\./, '').toLowerCase();
                         if (!parsed.hostname.includes('google.') && parsedHost === host) {
-                            if (!slug || parsed.pathname.toLowerCase().includes(slug)) {
+                            const parsedPath = parsed.pathname.toLowerCase().replace(/\/$/, '');
+                            if (!slug || parsedPath.includes(slug) || parsedPath === targetCleanPath) {
                                 matched = true;
                             }
                         }
@@ -475,14 +495,20 @@ async function findTargetInSerp(page, targetUrl, rankOffset = 0) {
 
                     if (matched) {
                         a.setAttribute('data-serp-target', 'true');
-                        if (h3) h3.setAttribute('data-serp-target-h3', 'true');
+                        if (heading) heading.setAttribute('data-serp-target-h3', 'true');
                         return { rank, href: cleanHref || href, title: title || host };
                     }
                 }
 
                 return null;
             },
-            { host: targetHost, slug: targetSlug, segments: pathSegments, offset: rankOffset },
+            {
+                host: targetHost,
+                slug: targetSlug,
+                segments: pathSegments,
+                cleanPath,
+                offset: rankOffset,
+            },
         );
 
         return match;
@@ -659,7 +685,9 @@ export async function executeGoogleSerpSearch(page, targetUrl, customQuery, navT
 
     // ── STEP 6: Click the organic result ─────────────────────────────────────
     log.info(`[SERP] STEP 6 — Clicking organic result Rank #${matchedResult.rank}…`);
-    const targetLocator = page.locator('a[data-serp-target="true"], h3[data-serp-target-h3="true"]').first();
+    const targetLocator = page
+        .locator('a[data-serp-target="true"], [data-serp-target-h3="true"], h3[data-serp-target-h3="true"]')
+        .first();
 
     let activePage = page;
 

@@ -338,7 +338,8 @@ export function getStealthInitScript(profile) {
             }
         } catch {}
 
-        // 9. Chrome runtime (required by many fingerprint checks)
+        // 9. Chrome runtime (only for Chromium/Edge browsers; never for Safari or Firefox)
+        ${profile.browser === 'chrome' || profile.browser === 'edge' ? `
         window.chrome = {
             app: { isInstalled: false },
             runtime: {
@@ -346,17 +347,24 @@ export function getStealthInitScript(profile) {
                 OnInstalledReason: { INSTALL: 'install', UPDATE: 'update', CHROME_UPDATE: 'chrome_update', SHARED_MODULE_UPDATE: 'shared_module_update' },
                 OnRestartRequiredReason: { APP_UPDATE: 'app_update', OS_UPDATE: 'os_update', PERIODIC: 'periodic' }
             }
-        };
-
-        // 10. Plugins — mimic real installed Chrome plugins
+        };` : `
         try {
+            delete window.chrome;
+        } catch {}`}
+
+        // 10. Plugins — mimic real installed plugins per browser
+        try {
+            ${profile.browser === 'chrome' || profile.browser === 'edge' ? `
             Object.defineProperty(navigator, 'plugins', {
                 get: () => [
                     { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
                     { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
                     { name: 'Native Client', filename: 'internal-nacl-plugin' }
                 ]
-            });
+            });` : `
+            Object.defineProperty(navigator, 'plugins', {
+                get: () => []
+            });`}
         } catch {}
 
         // 11. Hide automation-related properties in window object

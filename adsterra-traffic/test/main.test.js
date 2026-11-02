@@ -5,7 +5,7 @@ import { buildContextOptions, getStealthInitScript, resolveDeviceProfile } from 
 import { randomBetween, sleep } from '../src/humanizer.js';
 import { rotateResidentialProxyUrl } from '../src/proxyRotator.js';
 import { PRESET_REFERRERS, resolveReferrer } from '../src/referrers.js';
-import { buildSerpQuery, executeGoogleSerpSearch } from '../src/serp.js';
+import { buildSerpQuery, executeGoogleSerpSearch, findTargetInSerp } from '../src/serp.js';
 import { extractAndSanitizeUrls, extractTargetItems } from '../src/urlSanitizer.js';
 
 describe('SERP query builder', () => {
@@ -562,5 +562,36 @@ describe('SERP error classification & domain validation', () => {
 
         expect(completionRate).toBe('85.0');
         expect(successRate).toBe('81.0');
+    });
+
+    it('should find target in SERP without getting excluded by Search Console promo banner', async () => {
+        const mockPage = {
+            evaluate: async (_fn, _args) => {
+                // Emulate findTargetInSerp evaluation behavior
+                return {
+                    rank: 1,
+                    href: 'https://dailydogguide.com/puppy-training-schedule/',
+                    title: 'Puppy Training Schedule: Week-by-Week by Age - Daily Dog Guide',
+                };
+            },
+        };
+        const res = await findTargetInSerp(mockPage, 'https://dailydogguide.com/puppy-training-schedule/');
+        expect(res).not.toBeNull();
+        expect(res.rank).toBe(1);
+        expect(res.href).toBe('https://dailydogguide.com/puppy-training-schedule/');
+    });
+
+    it('should NOT inject window.chrome or Chrome plugins for Safari devices to prevent BotGuard flagging', () => {
+        const safariProfile = { browser: 'safari', platform: 'iPhone', isMobile: true, hasTouch: true };
+        const script = getStealthInitScript(safariProfile);
+        expect(script).toContain('delete window.chrome');
+        expect(script).not.toContain("name: 'Chrome PDF Plugin'");
+    });
+
+    it('should inject window.chrome and plugins for Chrome desktop', () => {
+        const chromeProfile = { browser: 'chrome', platform: 'Win32', isMobile: false, hasTouch: false };
+        const script = getStealthInitScript(chromeProfile);
+        expect(script).toContain('window.chrome =');
+        expect(script).toContain("name: 'Chrome PDF Plugin'");
     });
 });
