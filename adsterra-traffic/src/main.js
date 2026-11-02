@@ -390,8 +390,11 @@ async function runSession(task) {
             if (proxyUrl) {
                 try {
                     const u = new URL(proxyUrl);
+                    // Standard forward proxies (Oxylabs, Smartproxy, etc.) use HTTP CONNECT.
+                    // If a user accidentally enters https://, normalize to http:// so Playwright connects cleanly.
+                    const protocol = (u.protocol === 'https:') ? 'http:' : (u.protocol || 'http:');
                     launchProxy = {
-                        server: `${u.protocol}//${u.host}`,
+                        server: `${protocol}//${u.host}`,
                         username: decodeURIComponent(u.username || ''),
                         password: decodeURIComponent(u.password || ''),
                     };
