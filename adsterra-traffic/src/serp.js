@@ -4,7 +4,8 @@ import { randomBetween, simulateRandomMouseMovements, sleep } from './humanizer.
 
 /**
  * Builds a Google search query for the target URL.
- * Uses site:{hostname/path} format by default so the exact page surfaces in SERP.
+ * Uses site:{canonicalUrl} format (preserving https:// and trailing slashes)
+ * so Google matches the exact indexed canonical URL.
  */
 export function buildSerpQuery(targetUrl, customQuery = '') {
     if (customQuery && customQuery.trim().length > 0) {
@@ -16,13 +17,12 @@ export function buildSerpQuery(targetUrl, customQuery = '') {
         return trimmed;
     }
 
-    try {
-        const u = new URL(trimmed);
-        const cleanPath = `${u.hostname}${u.pathname.replace(/\/$/, '')}`;
-        return `site:${cleanPath}`;
-    } catch {
+    // Preserve exact canonical URL scheme & path so Google's index matches
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
         return `site:${trimmed}`;
     }
+
+    return `site:https://${trimmed}`;
 }
 
 /**

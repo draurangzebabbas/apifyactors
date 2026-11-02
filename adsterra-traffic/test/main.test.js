@@ -9,14 +9,14 @@ import { buildSerpQuery, executeGoogleSerpSearch, findTargetInSerp } from '../sr
 import { extractAndSanitizeUrls, extractTargetItems } from '../src/urlSanitizer.js';
 
 describe('SERP query builder', () => {
-    it('should generate site: query when no custom query is provided', () => {
+    it('should generate site: query with full canonical protocol when no custom query is provided', () => {
         const query = buildSerpQuery('https://example.com/blog/my-article');
-        expect(query).toBe('site:example.com/blog/my-article');
+        expect(query).toBe('site:https://example.com/blog/my-article');
     });
 
     it('should handle root domain URLs', () => {
         const query = buildSerpQuery('https://dailydogguide.com/');
-        expect(query).toBe('site:dailydogguide.com');
+        expect(query).toBe('site:https://dailydogguide.com/');
     });
 
     it('should preserve queries that already have site: prefix', () => {
@@ -24,9 +24,9 @@ describe('SERP query builder', () => {
         expect(query).toBe('site:https://dailydogguide.com/puppy-training-schedule');
     });
 
-    it('should generate site:query for deep path matching user scenario', () => {
-        const query = buildSerpQuery('https://dailydogguide.com/german-shepherd-lifespan');
-        expect(query).toBe('site:dailydogguide.com/german-shepherd-lifespan');
+    it('should generate site:query with exact canonical url matching user scenario', () => {
+        const query = buildSerpQuery('https://dailydogguide.com/german-shepherd-lifespan/');
+        expect(query).toBe('site:https://dailydogguide.com/german-shepherd-lifespan/');
     });
 
     it('should prioritize custom query when provided', () => {
@@ -510,7 +510,7 @@ describe('SERP error classification & domain validation', () => {
         const queryForSession = '';
         const serpCustomQuery = '';
         const formattedQuery = buildSerpQuery(url, queryForSession || serpCustomQuery);
-        expect(formattedQuery).toBe('site:dailydogguide.com/how-to-train-your-dog');
+        expect(formattedQuery).toBe('site:https://dailydogguide.com/how-to-train-your-dog/');
         expect(formattedQuery).not.toBe(url);
     });
 
