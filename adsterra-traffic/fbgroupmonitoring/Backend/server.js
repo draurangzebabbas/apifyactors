@@ -356,13 +356,95 @@ async function runTrafficBatchWorker() {
             }).eq('id', batch.campaign_id);
 
             if (isFinished) {
-              console.log(`🎉 [Worker] Campaign "${batch.traffic_campaigns.name}" completed in full (${newVisitsCompleted}/${batch.traffic_campaigns.total_visits} visits).`);
-              await sendUserPushNotification(
-                batch.traffic_campaigns.user_id,
-                '🎉 Campaign Completed!',
-                `Your traffic campaign "${batch.traffic_campaigns.name}" has completed! Delivered all ${batch.traffic_campaigns.total_visits.toLocaleString()} visits.`,
-                `/campaigns/${batch.campaign_id}`
-              );
+              const camp = batch.traffic_campaigns;
+              if (camp.delivery_mode === 'recurring') {
+                // Handle Recurring Campaign Renewal:
+                console.log(`🔄 [Worker] Recurring campaign "${camp.name}" cycle completed. Checking credits for renewal...`);
+                const renewalVisits = camp.total_visits;
+                const { data: userCreds } = await supabase
+                  .from('traffic_credits')
+                  .select('balance, total_used')
+                  .eq('user_id', camp.user_id)
+                  .single();
+
+                if (userCreds && userCreds.balance >= renewalVisits) {
+                  // Deduct credits for next cycle
+                  await supabase.from('traffic_credits').update({
+                    balance: userCreds.balance - renewalVisits,
+                    total_used: (userCreds.total_used || 0) + renewalVisits,
+                    updated_at: new Date().toISOString()
+                  }).eq('user_id', camp.user_id);
+
+                  await supabase.from('credit_transactions').insert({
+                    user_id: camp.user_id,
+                    type: 'debit',
+                    amount: -renewalVisits,
+                    description: `Recurring Traffic Renewal: ${camp.name} (${renewalVisits} visits)`
+                  });
+
+                  // Schedule new cycle batches
+                  const renewDuration = camp.recurring_interval_hours || camp.duration_hours || 24;
+                  const renewBatches = Math.ceil(renewalVisits / 100);
+                  const renewIntervalMs = (renewDuration * 3600 * 1000) / renewBatches;
+                  const renewStartTime = Date.now();
+
+                  // Get highest existing batch number
+                  const { data: lastBatch } = await supabase
+                    .from('traffic_batches')
+                    .select('batch_number')
+                    .eq('campaign_id', camp.id)
+                    .order('batch_number', { ascending: false })
+                    .limit(1)
+                    .single();
+
+                  const startBatchNum = (lastBatch?.batch_number || 0) + 1;
+                  const newBatchRows = [];
+                  let alloc = 0;
+
+                  for (let b = 0; b < renewBatches; b++) {
+                    const isLast = (b === renewBatches - 1);
+                    const bSize = isLast ? (renewalVisits - alloc) : Math.floor(renewalVisits / renewBatches);
+                    alloc += bSize;
+                    newBatchRows.push({
+                      campaign_id: camp.id,
+                      batch_number: startBatchNum + b,
+                      status: 'pending',
+                      visits_target: bSize,
+                      scheduled_at: new Date(renewStartTime + (b * renewIntervalMs)).toISOString()
+                    });
+                  }
+
+                  await supabase.from('traffic_batches').insert(newBatchRows);
+                  await supabase.from('traffic_campaigns').update({
+                    status: 'running',
+                    visits_completed: 0,
+                    updated_at: new Date().toISOString()
+                  }).eq('id', camp.id);
+
+                  console.log(`✅ [Worker] Recurring campaign "${camp.name}" successfully renewed for ${renewalVisits} visits (${renewBatches} batches).`);
+                } else {
+                  console.warn(`⚠️ [Worker] Recurring campaign "${camp.name}" paused due to insufficient credits.`);
+                  await supabase.from('traffic_campaigns').update({
+                    status: 'paused',
+                    updated_at: new Date().toISOString()
+                  }).eq('id', camp.id);
+
+                  await sendUserPushNotification(
+                    camp.user_id,
+                    '⚠️ Recurring Campaign Paused',
+                    `Your recurring campaign "${camp.name}" has completed its cycle but was paused due to low balance. Top up credits to resume automatically!`,
+                    `/campaigns/${camp.id}`
+                  );
+                }
+              } else {
+                console.log(`🎉 [Worker] Campaign "${batch.traffic_campaigns.name}" completed in full (${newVisitsCompleted}/${batch.traffic_campaigns.total_visits} visits).`);
+                await sendUserPushNotification(
+                  batch.traffic_campaigns.user_id,
+                  '🎉 Campaign Completed!',
+                  `Your traffic campaign "${batch.traffic_campaigns.name}" has completed! Delivered all ${batch.traffic_campaigns.total_visits.toLocaleString()} visits.`,
+                  `/campaigns/${batch.campaign_id}`
+                );
+              }
             }
 
             await keyManager.markSuccess(batch.apify_key_id);
@@ -495,8 +577,8 @@ async function runTrafficBatchWorker() {
   }
 }
 
-// Run batch worker every 30 seconds
-cron.schedule('*/30 * * * * *', () => {
+// Run batch worker every 10 seconds for precise batch execution and run monitoring
+cron.schedule('*/10 * * * * *', () => {
   runTrafficBatchWorker();
 });
 
@@ -586,7 +668,11 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
       dwell_time_min_seconds = 15,
       dwell_time_max_seconds = 45,
       enable_internal_navigation = true,
-      max_internal_pages = 2
+      max_internal_pages = 2,
+      delivery_mode = 'one_time', // 'one_time' | 'recurring'
+      traffic_curve = 'steady',   // 'steady' | 'ramp_up' | 'bell_curve'
+      humanize_jitter = true,     // natural organic variance (±15%)
+      recurring_interval_hours = 24
     } = req.body;
 
     // Validation
@@ -683,6 +769,10 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
         enable_internal_navigation,
         max_internal_pages,
         credits_cost: creditsRequired,
+        delivery_mode,
+        traffic_curve,
+        humanize_jitter: !!humanize_jitter,
+        recurring_interval_hours: parseInt(recurring_interval_hours, 10) || duration,
         scheduled_start_at: new Date().toISOString()
       })
       .select()
@@ -690,24 +780,76 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
 
     if (campErr) throw new Error(`Campaign creation failed: ${campErr.message}`);
 
-    // Schedule Batches
-    let scheduledVisits = 0;
+    // Schedule Batches using Selected Curve & Organic Jitter
     const batchRows = [];
     const startTime = Date.now();
 
+    // 1. Calculate weights for the batches depending on the curve
+    const weights = [];
     for (let i = 0; i < numBatches; i++) {
-      const isLast = (i === numBatches - 1);
-      const batchVisits = isLast ? (visits - scheduledVisits) : baseVisitsPerBatch;
-      scheduledVisits += batchVisits;
+      if (numBatches === 1) {
+        weights.push(1);
+        break;
+      }
+      const progress = i / (numBatches - 1); // 0.0 to 1.0
 
-      const scheduledAt = new Date(startTime + (i * intervalMs)).toISOString();
+      if (traffic_curve === 'ramp_up') {
+        // Linear ramp up from 0.4x to 1.6x average
+        weights.push(0.4 + (1.2 * progress));
+      } else if (traffic_curve === 'bell_curve') {
+        // Bell shape (peaks at mid-campaign: 0.5)
+        const distance = Math.abs(progress - 0.5) * 2; // 0 at peak, 1 at edges
+        weights.push(0.3 + (1.4 * Math.cos(distance * (Math.PI / 2))));
+      } else {
+        // Steady flat baseline
+        weights.push(1.0);
+      }
+    }
+
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+
+    // 2. Distribute visits proportionally
+    let allocatedVisits = 0;
+    const rawBatchSizes = [];
+    for (let i = 0; i < numBatches; i++) {
+      if (i === numBatches - 1) {
+        rawBatchSizes.push(visits - allocatedVisits);
+      } else {
+        let size = Math.round((weights[i] / totalWeight) * visits);
+
+        // Apply ±15% natural organic jitter if enabled
+        if (humanize_jitter && size > 10) {
+          const jitterPercent = (Math.random() * 0.30) - 0.15; // -15% to +15%
+          size = Math.round(size * (1 + jitterPercent));
+        }
+
+        // Keep batch between 5 and MAX_VISITS_PER_BATCH (100)
+        size = Math.max(5, Math.min(MAX_VISITS_PER_BATCH, size));
+        if (allocatedVisits + size >= visits) {
+          size = Math.max(5, visits - allocatedVisits - 5);
+        }
+
+        allocatedVisits += size;
+        rawBatchSizes.push(size);
+      }
+    }
+
+    // 3. Create batch rows with timing jitter (±2 to 5 minutes)
+    for (let i = 0; i < numBatches; i++) {
+      let batchScheduledTime = startTime + (i * intervalMs);
+
+      // If humanize_jitter is on, add slight natural timing jitter (except for batch 1)
+      if (humanize_jitter && i > 0) {
+        const timingJitterMs = (Math.random() * 600000) - 300000; // ±5 minutes
+        batchScheduledTime = Math.max(startTime + 60000, batchScheduledTime + timingJitterMs);
+      }
 
       batchRows.push({
         campaign_id: campaign.id,
         batch_number: i + 1,
         status: 'pending',
-        visits_target: batchVisits,
-        scheduled_at: scheduledAt
+        visits_target: rawBatchSizes[i],
+        scheduled_at: new Date(batchScheduledTime).toISOString()
       });
     }
 

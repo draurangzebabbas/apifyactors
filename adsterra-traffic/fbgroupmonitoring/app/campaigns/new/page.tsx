@@ -48,6 +48,11 @@ export default function NewCampaignPage() {
   const [serpQuery, setSerpQuery] = useState("")
   const [proxyUrlsText, setProxyUrlsText] = useState("")
 
+  // Delivery Curve & Mode
+  const [deliveryMode, setDeliveryMode] = useState<string>("one_time") // "one_time" | "recurring"
+  const [trafficCurve, setTrafficCurve] = useState<string>("steady")   // "steady" | "ramp_up" | "bell_curve"
+  const [humanizeJitter, setHumanizeJitter] = useState<boolean>(true)
+
   // Structured Proxy Vault state
   interface StoredProxy {
     id: string
@@ -251,7 +256,11 @@ export default function NewCampaignPage() {
         dwell_time_min_seconds: dwellMin,
         dwell_time_max_seconds: dwellMax,
         enable_internal_navigation: enableInternal,
-        max_internal_pages: maxInternalPages
+        max_internal_pages: maxInternalPages,
+        delivery_mode: deliveryMode,
+        traffic_curve: trafficCurve,
+        humanize_jitter: humanizeJitter,
+        recurring_interval_hours: durationHours
       }
 
       const res = await fetch(`${backendUrl}/api/campaigns`, {
@@ -429,6 +438,63 @@ export default function NewCampaignPage() {
                       ))}
                     </div>
                   </div>
+                </div>
+
+                {/* Advanced Traffic Curve & Mode */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/50">
+                  <div className="space-y-2">
+                    <Label>Delivery Strategy / Mode</Label>
+                    <Select value={deliveryMode} onValueChange={(val) => setDeliveryMode(val || "one_time")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="one_time">One-Time Package (Deliver &amp; Finish)</SelectItem>
+                        <SelectItem value="recurring">Continuous / Recurring (Auto-renews until stopped)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {deliveryMode === "recurring" 
+                        ? `Auto-renews ${totalVisits.toLocaleString()} visits every ${durationHours} hours as long as your wallet balance allows.` 
+                        : "Completes automatically once target visits are delivered."}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Traffic Curve Pattern</Label>
+                    <Select value={trafficCurve} onValueChange={(val) => setTrafficCurve(val || "steady")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="steady">Steady &amp; Uniform (Flat hourly pace)</SelectItem>
+                        <SelectItem value="ramp_up">Gradual Ramp-Up (Slow start, peak finish)</SelectItem>
+                        <SelectItem value="bell_curve">Natural Bell Curve (Peak mid-campaign)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {trafficCurve === "ramp_up" && "Starts small and gradually increases volume over time — perfect for SEO warm-up."}
+                      {trafficCurve === "bell_curve" && "Simulates real human browsing behavior peaking during mid-hours."}
+                      {trafficCurve === "steady" && "Evenly distributes visits across all batches throughout the duration."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Humanized Jitter Switch */}
+                <div className="flex items-center justify-between p-3.5 bg-muted/40 border rounded-lg">
+                  <div className="space-y-0.5">
+                    <div className="text-sm font-medium flex items-center gap-1.5">
+                      <span>Humanized Organic Jitter</span>
+                      <Badge variant="outline" className="text-[10px] h-4 text-emerald-500 border-emerald-500/30">Recommended</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Adds natural &plusmn;15% random variation to batch sizes and timings so traffic patterns look 100% human in analytics.
+                    </div>
+                  </div>
+                  <Switch
+                    checked={humanizeJitter}
+                    onCheckedChange={setHumanizeJitter}
+                  />
                 </div>
 
                 {/* Batching & Scheduling Summary Pill */}
