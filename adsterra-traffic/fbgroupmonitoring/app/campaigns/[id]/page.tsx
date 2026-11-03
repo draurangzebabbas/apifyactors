@@ -48,6 +48,12 @@ interface Campaign {
   duration_hours: number
   visits_per_batch: number
   traffic_source: string
+  delivery_mode?: string
+  traffic_curve?: string
+  daily_shape?: string
+  target_timezone?: string
+  humanize_jitter?: boolean
+  recurring_interval_hours?: number
   device_type: string
   dwell_time_min_seconds: number
   dwell_time_max_seconds: number
@@ -175,11 +181,31 @@ export default function CampaignDetailPage() {
                 </Button>
               </Link>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-2xl font-bold tracking-tight">{campaign.name}</h1>
                   <Badge variant={campaign.status === "running" ? "default" : "secondary"}>
                     {campaign.status}
                   </Badge>
+                  {campaign.delivery_mode === "recurring" && (
+                    <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-primary/20">
+                      🔁 Recurring
+                    </Badge>
+                  )}
+                  {campaign.traffic_curve === "ramp_up" && (
+                    <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">
+                      🌱 SEO Ramp-Up
+                    </Badge>
+                  )}
+                  {campaign.daily_shape === "business_hours" && (
+                    <Badge variant="outline" className="text-xs text-blue-500 border-blue-500/30">
+                      🏢 Business Hours
+                    </Badge>
+                  )}
+                  {campaign.daily_shape === "evening_peak" && (
+                    <Badge variant="outline" className="text-xs text-indigo-500 border-indigo-500/30">
+                      🌙 Evening Peak
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Created {new Date(campaign.created_at).toLocaleString()} • Duration: {campaign.duration_hours}h
@@ -208,6 +234,39 @@ export default function CampaignDetailPage() {
               )}
             </div>
           </div>
+
+          {/* Progress Bar Header Card */}
+          <Card>
+            <CardContent className="pt-6 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="space-y-0.5">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <span>Overall Delivery Progress</span>
+                    <span className="text-primary font-bold">{progressPct}%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {(campaign.visits_completed || 0).toLocaleString()} of {campaign.total_visits.toLocaleString()} visits successfully delivered
+                    {campaign.delivery_mode === "recurring" && " (Current Cycle)"}
+                  </p>
+                </div>
+                <div className="text-xs text-muted-foreground sm:text-right">
+                  {campaign.delivery_mode === "recurring" ? (
+                    <span className="inline-flex items-center gap-1 font-medium text-primary">
+                      🔁 Auto-renews every {campaign.recurring_interval_hours || campaign.duration_hours}h
+                    </span>
+                  ) : (
+                    <span>Single-cycle target completion</span>
+                  )}
+                </div>
+              </div>
+              <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                <div
+                  className="bg-primary h-3 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">

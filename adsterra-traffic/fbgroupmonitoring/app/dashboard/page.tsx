@@ -29,6 +29,10 @@ interface Campaign {
   visits_completed: number
   duration_hours: number
   traffic_source: string
+  delivery_mode?: string
+  traffic_curve?: string
+  daily_shape?: string
+  target_timezone?: string
   created_at: string
 }
 
@@ -195,11 +199,21 @@ export default function DashboardPage() {
                     <Card key={c.id} className="hover:border-primary/40 transition">
                       <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="space-y-1 min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-sm truncate">{c.name}</span>
                             <Badge variant={c.status === "running" ? "default" : "secondary"} className="text-[10px]">
                               {c.status}
                             </Badge>
+                            {c.delivery_mode === "recurring" && (
+                              <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+                                🔁 Recurring
+                              </Badge>
+                            )}
+                            {c.traffic_curve === "ramp_up" && (
+                              <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/30">
+                                🌱 SEO Ramp-Up
+                              </Badge>
+                            )}
                           </div>
                           <div className="text-xs text-muted-foreground truncate">
                             {c.start_urls?.[0]?.url}
