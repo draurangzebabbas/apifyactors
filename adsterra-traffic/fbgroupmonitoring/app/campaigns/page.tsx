@@ -32,6 +32,10 @@ interface Campaign {
   visits_completed: number
   duration_hours: number
   traffic_source: string
+  delivery_mode?: string
+  traffic_curve?: string
+  daily_shape?: string
+  target_timezone?: string
   created_at: string
 }
 
@@ -164,6 +168,26 @@ export default function CampaignsListPage() {
                             <Badge variant="outline" className="text-xs">
                               {c.traffic_source === "serp_google" ? "Google SERP" : "Simulated Referral"}
                             </Badge>
+                            {c.delivery_mode === "recurring" && (
+                              <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-primary/20">
+                                🔁 Recurring
+                              </Badge>
+                            )}
+                            {c.traffic_curve === "ramp_up" && (
+                              <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">
+                                🌱 SEO Ramp-Up
+                              </Badge>
+                            )}
+                            {c.daily_shape === "business_hours" && (
+                              <Badge variant="outline" className="text-xs text-blue-500 border-blue-500/30">
+                                🏢 Business Hours
+                              </Badge>
+                            )}
+                            {c.daily_shape === "evening_peak" && (
+                              <Badge variant="outline" className="text-xs text-indigo-500 border-indigo-500/30">
+                                🌙 Evening Peak
+                              </Badge>
+                            )}
                           </div>
 
                           <div className="text-xs text-muted-foreground truncate">

@@ -382,7 +382,7 @@ async function runTrafficBatchWorker() {
                     description: `Recurring Traffic Renewal: ${camp.name} (${renewalVisits} visits)`
                   });
 
-                  // Schedule new cycle batches
+                  // Schedule new cycle batches (at steady peak after cycle 1 ramp-up)
                   const renewDuration = camp.recurring_interval_hours || camp.duration_hours || 24;
                   const renewBatches = Math.ceil(renewalVisits / 100);
                   const renewIntervalMs = (renewDuration * 3600 * 1000) / renewBatches;
@@ -403,21 +403,35 @@ async function runTrafficBatchWorker() {
 
                   for (let b = 0; b < renewBatches; b++) {
                     const isLast = (b === renewBatches - 1);
-                    const bSize = isLast ? (renewalVisits - alloc) : Math.floor(renewalVisits / renewBatches);
+                    let bSize = isLast ? (renewalVisits - alloc) : Math.floor(renewalVisits / renewBatches);
+                    
+                    // Apply subtle jitter on recurring batches if enabled
+                    if (camp.humanize_jitter && !isLast && bSize > 10) {
+                      const jitterPercent = (Math.random() * 0.20) - 0.10; // ±10%
+                      bSize = Math.max(5, Math.min(100, Math.round(bSize * (1 + jitterPercent))));
+                    }
                     alloc += bSize;
+
+                    let batchTime = renewStartTime + (b * renewIntervalMs);
+                    if (camp.humanize_jitter && b > 0) {
+                      batchTime += (Math.random() * 300000) - 150000; // ±2.5 min timing noise
+                    }
+
                     newBatchRows.push({
                       campaign_id: camp.id,
                       batch_number: startBatchNum + b,
                       status: 'pending',
                       visits_target: bSize,
-                      scheduled_at: new Date(renewStartTime + (b * renewIntervalMs)).toISOString()
+                      scheduled_at: new Date(batchTime).toISOString()
                     });
                   }
 
                   await supabase.from('traffic_batches').insert(newBatchRows);
+                  // Set traffic_curve to steady after initial cycle completes
                   await supabase.from('traffic_campaigns').update({
                     status: 'running',
                     visits_completed: 0,
+                    traffic_curve: 'steady',
                     updated_at: new Date().toISOString()
                   }).eq('id', camp.id);
 
@@ -670,7 +684,9 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
       enable_internal_navigation = true,
       max_internal_pages = 2,
       delivery_mode = 'one_time', // 'one_time' | 'recurring'
-      traffic_curve = 'steady',   // 'steady' | 'ramp_up' | 'bell_curve'
+      traffic_curve = 'steady',   // 'steady' | 'ramp_up'
+      daily_shape = 'uniform_24h', // 'uniform_24h' | 'business_hours' | 'evening_peak' | 'global_mix'
+      target_timezone = 'UTC',
       humanize_jitter = true,     // natural organic variance (±15%)
       recurring_interval_hours = 24
     } = req.body;
@@ -771,6 +787,8 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
         credits_cost: creditsRequired,
         delivery_mode,
         traffic_curve,
+        daily_shape,
+        target_timezone,
         humanize_jitter: !!humanize_jitter,
         recurring_interval_hours: parseInt(recurring_interval_hours, 10) || duration,
         scheduled_start_at: new Date().toISOString()
@@ -780,30 +798,66 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
 
     if (campErr) throw new Error(`Campaign creation failed: ${campErr.message}`);
 
-    // Schedule Batches using Selected Curve & Organic Jitter
+    // Helper function to calculate hour in target timezone
+    function getHourInTimezone(date, timeZone) {
+      try {
+        const str = date.toLocaleTimeString('en-US', { timeZone, hour12: false, hour: 'numeric' });
+        return parseInt(str, 10);
+      } catch (e) {
+        return date.getUTCHours();
+      }
+    }
+
+    // Schedule Batches using Selected Curve, Daily Shape & Organic Jitter
     const batchRows = [];
     const startTime = Date.now();
 
-    // 1. Calculate weights for the batches depending on the curve
+    // 1. Calculate base weights based on macro growth curve (steady vs ramp_up)
+    // and micro time-of-day shape (business_hours, evening_peak, uniform_24h, global_mix)
     const weights = [];
     for (let i = 0; i < numBatches; i++) {
       if (numBatches === 1) {
         weights.push(1);
         break;
       }
-      const progress = i / (numBatches - 1); // 0.0 to 1.0
-
+      const progress = i / (numBatches - 1); // 0.0 to 1.0 (macro trajectory)
+      
+      // Macro growth component
+      let macroWeight = 1.0;
       if (traffic_curve === 'ramp_up') {
         // Linear ramp up from 0.4x to 1.6x average
-        weights.push(0.4 + (1.2 * progress));
-      } else if (traffic_curve === 'bell_curve') {
-        // Bell shape (peaks at mid-campaign: 0.5)
-        const distance = Math.abs(progress - 0.5) * 2; // 0 at peak, 1 at edges
-        weights.push(0.3 + (1.4 * Math.cos(distance * (Math.PI / 2))));
-      } else {
-        // Steady flat baseline
-        weights.push(1.0);
+        macroWeight = 0.4 + (1.2 * progress);
       }
+
+      // Micro daily shape component (based on expected time of execution in target timezone)
+      let microWeight = 1.0;
+      const expectedBatchDate = new Date(startTime + (i * intervalMs));
+      const localHour = getHourInTimezone(expectedBatchDate, target_timezone || 'UTC');
+
+      if (daily_shape === 'business_hours') {
+        // High 9am-6pm (09 to 18), tapering down at morning/evening, quiet at late night (01 to 06)
+        if (localHour >= 9 && localHour <= 18) {
+          microWeight = 1.6;
+        } else if ((localHour >= 7 && localHour < 9) || (localHour > 18 && localHour <= 21)) {
+          microWeight = 0.9;
+        } else {
+          microWeight = 0.3; // Quiet nighttime hours
+        }
+      } else if (daily_shape === 'evening_peak') {
+        // Peaks 6pm-11pm (18 to 23), moderate daytime, quiet late night
+        if (localHour >= 18 && localHour <= 23) {
+          microWeight = 1.8;
+        } else if (localHour >= 11 && localHour < 18) {
+          microWeight = 0.9;
+        } else {
+          microWeight = 0.3;
+        }
+      } else if (daily_shape === 'global_mix') {
+        // Worldwide audience, slight natural undulating wave across 24h
+        microWeight = 0.8 + (0.4 * Math.sin((localHour / 24) * 2 * Math.PI));
+      }
+
+      weights.push(macroWeight * microWeight);
     }
 
     const totalWeight = weights.reduce((sum, w) => sum + w, 0);

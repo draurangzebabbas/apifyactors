@@ -48,9 +48,11 @@ export default function NewCampaignPage() {
   const [serpQuery, setSerpQuery] = useState("")
   const [proxyUrlsText, setProxyUrlsText] = useState("")
 
-  // Delivery Curve & Mode
+  // Delivery Curve, Mode & Shape
   const [deliveryMode, setDeliveryMode] = useState<string>("one_time") // "one_time" | "recurring"
-  const [trafficCurve, setTrafficCurve] = useState<string>("steady")   // "steady" | "ramp_up" | "bell_curve"
+  const [trafficCurve, setTrafficCurve] = useState<string>("steady")   // "steady" | "ramp_up"
+  const [dailyShape, setDailyShape] = useState<string>("uniform_24h")  // "uniform_24h" | "business_hours" | "evening_peak" | "global_mix"
+  const [targetTimezone, setTargetTimezone] = useState<string>("America/New_York")
   const [humanizeJitter, setHumanizeJitter] = useState<boolean>(true)
 
   // Structured Proxy Vault state
@@ -259,6 +261,8 @@ export default function NewCampaignPage() {
         max_internal_pages: maxInternalPages,
         delivery_mode: deliveryMode,
         traffic_curve: trafficCurve,
+        daily_shape: dailyShape,
+        target_timezone: targetTimezone,
         humanize_jitter: humanizeJitter,
         recurring_interval_hours: durationHours
       }
@@ -440,10 +444,88 @@ export default function NewCampaignPage() {
                   </div>
                 </div>
 
-                {/* Advanced Traffic Curve & Mode */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/50">
+                {/* Presets Quick Selector */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span>⚡ Quick Setup Templates</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">Click any preset to auto-configure</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeliveryMode("one_time")
+                        setTrafficCurve("ramp_up")
+                        setDailyShape("business_hours")
+                        setHumanizeJitter(true)
+                        setDurationHours(24)
+                        setTotalVisits(500)
+                        setTrafficSource("serp_google")
+                        toast.info("Applied SEO Warm-up & Safe Ramp template")
+                      }}
+                      className="p-2.5 text-left rounded-lg border bg-background hover:bg-muted/50 transition cursor-pointer text-xs space-y-1"
+                    >
+                      <div className="font-semibold text-primary flex items-center justify-between">
+                        <span>🌱 SEO Warm-Up</span>
+                        <Badge variant="outline" className="text-[9px] h-4">Recommended</Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground line-clamp-2">
+                        Gradual ramp-up during US business hours. Perfect for fresh domains &amp; zero spike risks.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeliveryMode("recurring")
+                        setTrafficCurve("steady")
+                        setDailyShape("uniform_24h")
+                        setHumanizeJitter(true)
+                        setDurationHours(24)
+                        setTotalVisits(1000)
+                        toast.info("Applied Steady Daily Ad Traffic template")
+                      }}
+                      className="p-2.5 text-left rounded-lg border bg-background hover:bg-muted/50 transition cursor-pointer text-xs space-y-1"
+                    >
+                      <div className="font-semibold text-foreground flex items-center justify-between">
+                        <span>📈 Steady Daily Flow</span>
+                        <Badge variant="secondary" className="text-[9px] h-4">Auto-Renew</Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground line-clamp-2">
+                        Even 24/7 delivery renewing daily with organic jitter. Maintains high baseline analytics rank.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeliveryMode("one_time")
+                        setTrafficCurve("steady")
+                        setDailyShape("evening_peak")
+                        setHumanizeJitter(true)
+                        setDurationHours(12)
+                        setTotalVisits(300)
+                        toast.info("Applied Viral / Evening Peak template")
+                      }}
+                      className="p-2.5 text-left rounded-lg border bg-background hover:bg-muted/50 transition cursor-pointer text-xs space-y-1"
+                    >
+                      <div className="font-semibold text-foreground flex items-center justify-between">
+                        <span>🔥 Evening Peak Rush</span>
+                        <Badge variant="outline" className="text-[9px] h-4">High Intent</Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground line-clamp-2">
+                        Concentrates visits heavily in target evening hours (6pm-11pm) simulating post-work browsing.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Advanced Traffic Curve, Mode & Daily Shape */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-border/50">
                   <div className="space-y-2">
-                    <Label>Delivery Strategy / Mode</Label>
+                    <Label className="flex items-center justify-between">
+                      <span>Delivery Strategy / Mode</span>
+                    </Label>
                     <Select value={deliveryMode} onValueChange={(val) => setDeliveryMode(val || "one_time")}>
                       <SelectTrigger>
                         <SelectValue />
@@ -461,23 +543,80 @@ export default function NewCampaignPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Traffic Curve Pattern</Label>
+                    <Label>Growth Trajectory (Campaign Level)</Label>
                     <Select value={trafficCurve} onValueChange={(val) => setTrafficCurve(val || "steady")}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="steady">Steady &amp; Uniform (Flat hourly pace)</SelectItem>
-                        <SelectItem value="ramp_up">Gradual Ramp-Up (Slow start, peak finish)</SelectItem>
-                        <SelectItem value="bell_curve">Natural Bell Curve (Peak mid-campaign)</SelectItem>
+                        <SelectItem value="steady">Steady &amp; Uniform (Flat pace across cycle)</SelectItem>
+                        <SelectItem value="ramp_up">Gradual Ramp-Up (Starts at 40%, reaches 160% peak)</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      {trafficCurve === "ramp_up" && "Starts small and gradually increases volume over time — perfect for SEO warm-up."}
-                      {trafficCurve === "bell_curve" && "Simulates real human browsing behavior peaking during mid-hours."}
-                      {trafficCurve === "steady" && "Evenly distributes visits across all batches throughout the duration."}
+                      {trafficCurve === "ramp_up"
+                        ? "Safely introduces visits slowly, then scales up. For recurring campaigns, cycle 2+ maintains steady peak."
+                        : "Visits are distributed evenly across the full duration."}
                     </p>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label>Daily Traffic Shape (Time of Day)</Label>
+                    <Select value={dailyShape} onValueChange={(val) => setDailyShape(val || "uniform_24h")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="uniform_24h">24/7 Uniform (Constant spread throughout)</SelectItem>
+                        <SelectItem value="business_hours">Business Hours Peak (9 AM - 6 PM high, night quiet)</SelectItem>
+                        <SelectItem value="evening_peak">Evening Peak (6 PM - 11 PM high, leisure browsing)</SelectItem>
+                        <SelectItem value="global_mix">Global Mix (Worldwide wave pattern)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {dailyShape === "business_hours" && "Concentrates traffic during daytime working hours in your selected timezone."}
+                      {dailyShape === "evening_peak" && "High traffic during evening relaxation and shopping hours."}
+                      {dailyShape === "global_mix" && "Natural wave distribution ideal for international global audiences."}
+                      {dailyShape === "uniform_24h" && "Spreads visits evenly across every hour of the day."}
+                    </p>
+                  </div>
+
+                  {(dailyShape === "business_hours" || dailyShape === "evening_peak") ? (
+                    <div className="space-y-2">
+                      <Label>Target Audience Timezone</Label>
+                      <Select value={targetTimezone} onValueChange={(val) => setTargetTimezone(val || "America/New_York")}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="America/New_York">US Eastern Time (New York / EDT)</SelectItem>
+                          <SelectItem value="America/Chicago">US Central Time (Chicago / CDT)</SelectItem>
+                          <SelectItem value="America/Los_Angeles">US Pacific Time (Los Angeles / PDT)</SelectItem>
+                          <SelectItem value="Europe/London">UK &amp; Ireland (London / GMT)</SelectItem>
+                          <SelectItem value="Europe/Berlin">Central Europe (Berlin, Paris / CET)</SelectItem>
+                          <SelectItem value="Asia/Dubai">Gulf &amp; Middle East (Dubai / GST)</SelectItem>
+                          <SelectItem value="Asia/Karachi">Pakistan Standard Time (PKT)</SelectItem>
+                          <SelectItem value="Asia/Kolkata">India Standard Time (IST)</SelectItem>
+                          <SelectItem value="Asia/Singapore">Singapore / Hong Kong (SGT)</SelectItem>
+                          <SelectItem value="Australia/Sydney">Australia (Sydney / AEST)</SelectItem>
+                          <SelectItem value="UTC">Coordinated Universal Time (UTC)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Peak hours will align with your visitors&apos; local clock in this region.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label className="opacity-60">Target Audience Timezone</Label>
+                      <div className="h-9 rounded-md border border-dashed px-3 flex items-center text-xs text-muted-foreground bg-muted/20">
+                        Active 24/7 worldwide — timezone adjustment not required
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Applicable when choosing Business Hours or Evening Peak shapes.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Humanized Jitter Switch */}
@@ -488,7 +627,7 @@ export default function NewCampaignPage() {
                       <Badge variant="outline" className="text-[10px] h-4 text-emerald-500 border-emerald-500/30">Recommended</Badge>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Adds natural &plusmn;15% random variation to batch sizes and timings so traffic patterns look 100% human in analytics.
+                      Adds natural &plusmn;15% random variation to batch sizes and &plusmn;2 to 5 min timing jitter so analytics graphs look indistinguishable from real humans.
                     </div>
                   </div>
                   <Switch
@@ -498,28 +637,61 @@ export default function NewCampaignPage() {
                 </div>
 
                 {/* Batching & Scheduling Summary Pill */}
-                <div className="bg-muted/60 border rounded-lg p-4 space-y-2">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Automated Batch Distribution
+                <div className="bg-muted/60 border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Batch Distribution &amp; Cost Estimation
+                    </span>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {deliveryMode === "recurring" ? `Renews every ${durationHours}h` : "Single Cycle"}
+                    </Badge>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                     <div>
                       <div className="text-muted-foreground text-xs">Total Batches</div>
-                      <div className="font-semibold text-foreground">{numBatches} batches (max 100/batch)</div>
+                      <div className="font-semibold text-foreground">{numBatches} batches (max 100/ea)</div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground text-xs">Delivery Rate</div>
+                      <div className="text-muted-foreground text-xs">Average Pace</div>
                       <div className="font-semibold text-foreground">~{visitsPerHour} visits / hr</div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground text-xs">Credit Cost</div>
+                      <div className="text-muted-foreground text-xs">{deliveryMode === "recurring" ? "Cost Per Cycle" : "Total Cost"}</div>
                       <div className="font-semibold text-primary">{visitsCost.toLocaleString()} credits</div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground text-xs">Balance After</div>
+                      <div className="text-muted-foreground text-xs">Balance After First Cycle</div>
                       <div className={`font-semibold ${hasEnoughCredits ? "text-emerald-600" : "text-destructive"}`}>
                         {(balance - visitsCost).toLocaleString()}
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Visual Batch Schedule Preview Pill */}
+                  <div className="pt-2 border-t border-border/50 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-medium text-foreground">Schedule Timeline Preview:</span>
+                      <span>{numBatches} scheduled runs over {durationHours}h</span>
+                    </div>
+                    <div className="flex items-center gap-1 overflow-x-auto py-1">
+                      {Array.from({ length: Math.min(numBatches, 12) }).map((_, i) => {
+                        let barHeight = "h-4"
+                        if (trafficCurve === "ramp_up") {
+                          const p = i / Math.max(1, Math.min(numBatches, 12) - 1)
+                          barHeight = p < 0.3 ? "h-2" : p < 0.7 ? "h-3.5" : "h-5"
+                        } else if (dailyShape === "business_hours") {
+                          barHeight = (i % 3 === 1) ? "h-5" : (i % 3 === 0) ? "h-3" : "h-2"
+                        }
+                        return (
+                          <div key={i} className="flex flex-col items-center gap-1 shrink-0">
+                            <div className={`w-5 rounded-xs bg-primary/70 transition-all ${barHeight}`} />
+                            <span className="text-[9px] opacity-70">#{i + 1}</span>
+                          </div>
+                        )
+                      })}
+                      {numBatches > 12 && (
+                        <span className="text-[10px] pl-1 text-muted-foreground">+{numBatches - 12} more</span>
+                      )}
                     </div>
                   </div>
                 </div>
