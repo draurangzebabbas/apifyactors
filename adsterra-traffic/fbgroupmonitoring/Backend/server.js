@@ -862,12 +862,12 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
 
     const totalWeight = weights.reduce((sum, w) => sum + w, 0);
 
-    // 2. Distribute visits proportionally
+    // 2. Distribute visits proportionally into time intervals
     let allocatedVisits = 0;
-    const rawBatchSizes = [];
+    const intervalAllocations = [];
     for (let i = 0; i < numBatches; i++) {
       if (i === numBatches - 1) {
-        rawBatchSizes.push(visits - allocatedVisits);
+        intervalAllocations.push(Math.max(5, visits - allocatedVisits));
       } else {
         let size = Math.round((weights[i] / totalWeight) * visits);
 
@@ -877,34 +877,45 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
           size = Math.round(size * (1 + jitterPercent));
         }
 
-        // Keep batch between 5 and MAX_VISITS_PER_BATCH (100)
-        size = Math.max(5, Math.min(MAX_VISITS_PER_BATCH, size));
+        size = Math.max(5, size);
         if (allocatedVisits + size >= visits) {
           size = Math.max(5, visits - allocatedVisits - 5);
         }
 
         allocatedVisits += size;
-        rawBatchSizes.push(size);
+        intervalAllocations.push(size);
       }
     }
 
-    // 3. Create batch rows with timing jitter (±2 to 5 minutes)
-    for (let i = 0; i < numBatches; i++) {
-      let batchScheduledTime = startTime + (i * intervalMs);
+    // 3. Guarantee STRICT CAP: No Apify call will EVER exceed MAX_VISITS_PER_BATCH (100).
+    // If an interval allocation exceeds 100 (e.g. 260 visits), split it into multiple distinct Apify batch calls (100, 100, 60).
+    let batchIndex = 1;
+    for (let i = 0; i < intervalAllocations.length; i++) {
+      let intervalRemaining = intervalAllocations[i];
+      const baseScheduledTime = startTime + (i * intervalMs);
+      let subOffset = 0;
 
-      // If humanize_jitter is on, add slight natural timing jitter (except for batch 1)
-      if (humanize_jitter && i > 0) {
-        const timingJitterMs = (Math.random() * 600000) - 300000; // ±5 minutes
-        batchScheduledTime = Math.max(startTime + 60000, batchScheduledTime + timingJitterMs);
+      while (intervalRemaining > 0) {
+        const subBatchSize = Math.min(MAX_VISITS_PER_BATCH, intervalRemaining);
+        intervalRemaining -= subBatchSize;
+
+        let batchScheduledTime = baseScheduledTime + subOffset;
+        if (humanize_jitter && (i > 0 || subOffset > 0)) {
+          const timingJitterMs = (Math.random() * 240000) - 120000; // ±2 minutes
+          batchScheduledTime = Math.max(startTime + 30000, batchScheduledTime + timingJitterMs);
+        }
+
+        batchRows.push({
+          campaign_id: campaign.id,
+          batch_number: batchIndex++,
+          status: 'pending',
+          visits_target: subBatchSize,
+          scheduled_at: new Date(batchScheduledTime).toISOString()
+        });
+
+        // Space out sub-batches slightly (e.g. 3-5 mins) if split
+        subOffset += 240000;
       }
-
-      batchRows.push({
-        campaign_id: campaign.id,
-        batch_number: i + 1,
-        status: 'pending',
-        visits_target: rawBatchSizes[i],
-        scheduled_at: new Date(batchScheduledTime).toISOString()
-      });
     }
 
     const { data: insertedBatches, error: batchErr } = await supabase
