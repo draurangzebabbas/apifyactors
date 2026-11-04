@@ -12,8 +12,29 @@ const PORT = process.env.PORT || 4000;
 const ACTOR_ID = process.env.APIFY_ACTOR_ID || 'wmJ51jY3JE7K6cO9u'; // adsterra-traffic Actor ID (published)
 
 // Middleware
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  // Vercel production & preview deployments
+  'https://trafficflowdraurangzebabbas.vercel.app',
+  // Allow any *.vercel.app preview URL for this project
+];
+if (process.env.FRONTEND_URL) {
+  ALLOWED_ORIGINS.push(process.env.FRONTEND_URL);
+}
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Allow server-to-server requests (no origin) and Vercel preview deploys
+    if (!origin) return callback(null, true);
+    if (
+      ALLOWED_ORIGINS.includes(origin) ||
+      /^https:\/\/trafficflow[a-z0-9\-]*\.vercel\.app$/.test(origin)
+    ) {
+      return callback(null, true);
+    }
+    callback(new Error(`CORS: Origin ${origin} not allowed`));
+  },
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));

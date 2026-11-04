@@ -397,7 +397,7 @@ export default function NewCampaignPage() {
                       id="visits"
                       type="number"
                       min={10}
-                      step={50}
+                      step={1}
                       value={totalVisits}
                       onChange={e => setTotalVisits(Math.max(10, parseInt(e.target.value, 10) || 10))}
                     />
