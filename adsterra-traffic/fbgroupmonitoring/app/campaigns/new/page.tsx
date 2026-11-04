@@ -54,6 +54,7 @@ export default function NewCampaignPage() {
   const [dailyShape, setDailyShape] = useState<string>("uniform_24h")  // "uniform_24h" | "business_hours" | "evening_peak" | "global_mix"
   const [targetTimezone, setTargetTimezone] = useState<string>("America/New_York")
   const [humanizeJitter, setHumanizeJitter] = useState<boolean>(true)
+  const [activePreset, setActivePreset] = useState<string | null>(null) // tracks selected quick-setup preset
 
   // Structured Proxy Vault state
   interface StoredProxy {
@@ -447,10 +448,11 @@ export default function NewCampaignPage() {
                 {/* Presets Quick Selector */}
                 <div className="space-y-1.5 pt-1">
                   <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                    <span>⚡ Quick Setup Templates</span>
+                    <span>Quick Setup Templates</span>
                     <span className="text-[10px] text-muted-foreground font-normal">Click any preset to auto-configure</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    {/* SEO Warm-Up */}
                     <button
                       type="button"
                       onClick={() => {
@@ -461,19 +463,24 @@ export default function NewCampaignPage() {
                         setDurationHours(24)
                         setTotalVisits(500)
                         setTrafficSource("serp_google")
-                        toast.info("Applied SEO Warm-up & Safe Ramp template")
+                        setActivePreset("seo_warmup")
                       }}
-                      className="p-2.5 text-left rounded-lg border bg-background hover:bg-muted/50 transition cursor-pointer text-xs space-y-1"
+                      className={`p-2.5 text-left rounded-lg border transition cursor-pointer text-xs space-y-1 ${
+                        activePreset === "seo_warmup"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background hover:bg-muted/50 border-border"
+                      }`}
                     >
-                      <div className="font-semibold text-primary flex items-center justify-between">
-                        <span>🌱 SEO Warm-Up</span>
-                        <Badge variant="outline" className="text-[9px] h-4">Recommended</Badge>
+                      <div className="font-semibold flex items-center justify-between">
+                        <span>SEO Warm-Up</span>
+                        <Badge variant="outline" className={`text-[9px] h-4 ${activePreset === "seo_warmup" ? "border-primary-foreground/40 text-primary-foreground" : ""}`}>Recommended</Badge>
                       </div>
-                      <p className="text-[11px] text-muted-foreground line-clamp-2">
+                      <p className={`text-[11px] line-clamp-2 ${activePreset === "seo_warmup" ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
                         Gradual ramp-up during US business hours. Perfect for fresh domains &amp; zero spike risks.
                       </p>
                     </button>
 
+                    {/* Steady Daily Flow */}
                     <button
                       type="button"
                       onClick={() => {
@@ -483,19 +490,24 @@ export default function NewCampaignPage() {
                         setHumanizeJitter(true)
                         setDurationHours(24)
                         setTotalVisits(1000)
-                        toast.info("Applied Steady Daily Ad Traffic template")
+                        setActivePreset("steady_daily")
                       }}
-                      className="p-2.5 text-left rounded-lg border bg-background hover:bg-muted/50 transition cursor-pointer text-xs space-y-1"
+                      className={`p-2.5 text-left rounded-lg border transition cursor-pointer text-xs space-y-1 ${
+                        activePreset === "steady_daily"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background hover:bg-muted/50 border-border"
+                      }`}
                     >
-                      <div className="font-semibold text-foreground flex items-center justify-between">
-                        <span>📈 Steady Daily Flow</span>
-                        <Badge variant="secondary" className="text-[9px] h-4">Auto-Renew</Badge>
+                      <div className="font-semibold flex items-center justify-between">
+                        <span>Steady Daily Flow</span>
+                        <Badge variant="secondary" className={`text-[9px] h-4 ${activePreset === "steady_daily" ? "bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30" : ""}`}>Auto-Renew</Badge>
                       </div>
-                      <p className="text-[11px] text-muted-foreground line-clamp-2">
+                      <p className={`text-[11px] line-clamp-2 ${activePreset === "steady_daily" ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
                         Even 24/7 delivery renewing daily with organic jitter. Maintains high baseline analytics rank.
                       </p>
                     </button>
 
+                    {/* Evening Peak Rush */}
                     <button
                       type="button"
                       onClick={() => {
@@ -505,15 +517,19 @@ export default function NewCampaignPage() {
                         setHumanizeJitter(true)
                         setDurationHours(12)
                         setTotalVisits(300)
-                        toast.info("Applied Viral / Evening Peak template")
+                        setActivePreset("evening_peak")
                       }}
-                      className="p-2.5 text-left rounded-lg border bg-background hover:bg-muted/50 transition cursor-pointer text-xs space-y-1"
+                      className={`p-2.5 text-left rounded-lg border transition cursor-pointer text-xs space-y-1 ${
+                        activePreset === "evening_peak"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background hover:bg-muted/50 border-border"
+                      }`}
                     >
-                      <div className="font-semibold text-foreground flex items-center justify-between">
-                        <span>🔥 Evening Peak Rush</span>
-                        <Badge variant="outline" className="text-[9px] h-4">High Intent</Badge>
+                      <div className="font-semibold flex items-center justify-between">
+                        <span>Evening Peak Rush</span>
+                        <Badge variant="outline" className={`text-[9px] h-4 ${activePreset === "evening_peak" ? "border-primary-foreground/40 text-primary-foreground" : ""}`}>High Intent</Badge>
                       </div>
-                      <p className="text-[11px] text-muted-foreground line-clamp-2">
+                      <p className={`text-[11px] line-clamp-2 ${activePreset === "evening_peak" ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
                         Concentrates visits heavily in target evening hours (6pm-11pm) simulating post-work browsing.
                       </p>
                     </button>
