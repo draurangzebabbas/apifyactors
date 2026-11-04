@@ -31,3 +31,4 @@ CREATE POLICY "Users can update their own proxies"
 CREATE POLICY "Users can delete their own proxies"
     ON public.user_proxies FOR DELETE
     USING (auth.uid() = user_id);
+

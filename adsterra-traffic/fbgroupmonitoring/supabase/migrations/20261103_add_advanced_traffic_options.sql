@@ -8,3 +8,4 @@ ADD COLUMN IF NOT EXISTS recurring_interval_hours INTEGER DEFAULT 24; -- interva
 -- Add jitter tracking column to traffic_batches if desired
 ALTER TABLE public.traffic_batches
 ADD COLUMN IF NOT EXISTS jitter_applied BOOLEAN DEFAULT false;
+
