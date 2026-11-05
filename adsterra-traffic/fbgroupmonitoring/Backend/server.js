@@ -586,7 +586,17 @@ async function runTrafficBatchWorker() {
       .limit(5);
 
     if (!pendErr && pendingBatches && pendingBatches.length > 0) {
+      // Guard against concurrent execution on the SAME campaign:
+      // If a campaign already has an active 'running' batch, wait for it to finish first.
+      const activeCampaignIds = new Set(
+        (runningBatches || []).map(b => b.campaign_id)
+      );
+
       for (const batch of pendingBatches) {
+        if (activeCampaignIds.has(batch.campaign_id)) {
+          continue; // Wait until current active batch finishes cleanly
+        }
+        activeCampaignIds.add(batch.campaign_id); // Lock this campaign for this worker tick
         const campaign = batch.traffic_campaigns;
         const key = await keyManager.getNextKey();
 
