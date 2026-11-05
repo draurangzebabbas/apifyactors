@@ -16,3 +16,4 @@ ALTER TABLE traffic_campaigns
   ]));
 
 NOTIFY pgrst, 'reload schema';
+

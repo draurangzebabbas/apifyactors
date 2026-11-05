@@ -783,6 +783,7 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
     const intervalMs = (duration * 3600 * 1000) / numBatches;
 
     // Insert Campaign
+    // Step 1: Create campaign record directly with all columns
     const { data: campaign, error: campErr } = await supabase
       .from('traffic_campaigns')
       .insert({
@@ -806,31 +807,18 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
         enable_internal_navigation,
         max_internal_pages,
         credits_cost: creditsRequired,
-        scheduled_start_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (campErr) throw new Error(`Campaign creation failed: ${campErr.message}`);
-
-    // Step 2: Patch the new columns in a separate UPDATE.
-    // This survives a stale PostgREST schema cache on the initial INSERT
-    // because the core row is already committed and the UPDATE uses a simple PK filter.
-    const { error: patchErr } = await supabase
-      .from('traffic_campaigns')
-      .update({
         delivery_mode,
         traffic_curve,
         daily_shape,
         target_timezone,
         humanize_jitter: !!humanize_jitter,
         recurring_interval_hours: parseInt(recurring_interval_hours, 10) || duration,
+        scheduled_start_at: new Date().toISOString()
       })
-      .eq('id', campaign.id);
+      .select()
+      .single();
 
-    if (patchErr) {
-      console.warn(`[POST /api/campaigns] Non-fatal: failed to patch new columns on campaign ${campaign.id}: ${patchErr.message}`);
-    }
+    if (campErr) throw new Error(`Campaign creation failed: ${campErr.message}`);
 
     // Helper function to calculate hour in target timezone
     function getHourInTimezone(date, timeZone) {
