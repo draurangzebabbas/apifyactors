@@ -457,37 +457,83 @@ async function runTrafficBatchWorker() {
           const remainingForCampaign = batch.traffic_campaigns.total_visits - newVisitsCompleted;
           const isFinished = remainingForCampaign <= 0;
 
-          await supabase.from('traffic_campaigns').update({
-            visits_completed: newVisitsCompleted,
-            ...(isFinished ? { status: 'completed', completed_at: new Date().toISOString() } : {})
-          }).eq('id', batch.campaign_id);
+          // Check if this is a strict Google SERP campaign with fallback disabled
+          const isStrictSerp = batch.traffic_campaigns.traffic_source === 'serp_google' && batch.traffic_campaigns.serp_fallback_to_direct === false;
 
-          // If campaign still needs visits to satisfy 100% of the target, auto-reschedule!
-          if (!isFinished && batch.traffic_campaigns.status === 'running') {
-            const unmetInBatch = batch.visits_target - completedVisits;
-            const rescheduleCount = Math.min(unmetInBatch > 0 ? unmetInBatch : remainingForCampaign, remainingForCampaign);
+          if (isStrictSerp && completedVisits === 0) {
+            // Strict Google SERP with 0 visits delivered (e.g. bad proxy, CAPTCHAs, or target URLs not in Google top 20).
+            // Do NOT retry in an infinite loop! Stop the campaign, mark it failed, and refund unused credits to save Apify compute.
+            console.warn(`🛑 [Worker] Campaign "${batch.traffic_campaigns.name}" is strict Google SERP (no fallback) and delivered 0 visits. Stopping campaign to prevent burning Apify credits.`);
 
-            if (rescheduleCount > 0) {
-              const { data: maxBatch } = await supabase
-                .from('traffic_batches')
-                .select('batch_number')
-                .eq('campaign_id', batch.campaign_id)
-                .order('batch_number', { ascending: false })
-                .limit(1)
+            await supabase.from('traffic_campaigns').update({
+              visits_completed: newVisitsCompleted,
+              status: 'failed',
+              completed_at: new Date().toISOString()
+            }).eq('id', batch.campaign_id);
+
+            // Refund unused credits
+            if (remainingForCampaign > 0) {
+              const { data: userCreds } = await supabase
+                .from('traffic_credits')
+                .select('balance, total_used')
+                .eq('user_id', batch.traffic_campaigns.user_id)
                 .single();
 
-              const nextBatchNum = (maxBatch?.batch_number || batch.batch_number) + 1;
-              const retryScheduledAt = new Date(Date.now() + 15000).toISOString(); // 15s retry
+              if (userCreds) {
+                await supabase.from('traffic_credits').update({
+                  balance: userCreds.balance + remainingForCampaign,
+                  total_used: Math.max(0, (userCreds.total_used || 0) - remainingForCampaign),
+                  updated_at: new Date().toISOString()
+                }).eq('user_id', batch.traffic_campaigns.user_id);
 
-              await supabase.from('traffic_batches').insert({
-                campaign_id: batch.campaign_id,
-                batch_number: nextBatchNum,
-                status: 'pending',
-                visits_target: rescheduleCount,
-                scheduled_at: retryScheduledAt
-              });
+                await supabase.from('credit_transactions').insert({
+                  user_id: batch.traffic_campaigns.user_id,
+                  type: 'refund',
+                  amount: remainingForCampaign,
+                  description: `Refund for failed strict SERP campaign: ${batch.traffic_campaigns.name} (${remainingForCampaign} visits)`
+                });
+              }
+            }
 
-              console.log(`🔁 [Worker] Batch #${batch.batch_number} delivered ${completedVisits}/${batch.visits_target}. Auto-rescheduled ${rescheduleCount} remaining visits into Batch #${nextBatchNum} for campaign "${batch.traffic_campaigns.name}" to ensure 100% target fulfillment.`);
+            await sendUserPushNotification(
+              batch.traffic_campaigns.user_id,
+              '⚠️ SERP Campaign Could Not Deliver',
+              `Your Google SERP campaign "${batch.traffic_campaigns.name}" could not find your URLs in Google top 20 or hit CAPTCHAs with your proxy. Remaining ${remainingForCampaign} credits have been refunded.`,
+              `/campaigns/${batch.campaign_id}`
+            );
+          } else {
+            await supabase.from('traffic_campaigns').update({
+              visits_completed: newVisitsCompleted,
+              ...(isFinished ? { status: 'completed', completed_at: new Date().toISOString() } : {})
+            }).eq('id', batch.campaign_id);
+
+            // If campaign still needs visits to satisfy 100% of the target, auto-reschedule!
+            if (!isFinished && batch.traffic_campaigns.status === 'running') {
+              const unmetInBatch = batch.visits_target - completedVisits;
+              const rescheduleCount = Math.min(unmetInBatch > 0 ? unmetInBatch : remainingForCampaign, remainingForCampaign);
+
+              if (rescheduleCount > 0) {
+                const { data: maxBatch } = await supabase
+                  .from('traffic_batches')
+                  .select('batch_number')
+                  .eq('campaign_id', batch.campaign_id)
+                  .order('batch_number', { ascending: false })
+                  .limit(1)
+                  .single();
+
+                const nextBatchNum = (maxBatch?.batch_number || batch.batch_number) + 1;
+                const retryScheduledAt = new Date(Date.now() + 15000).toISOString(); // 15s retry
+
+                await supabase.from('traffic_batches').insert({
+                  campaign_id: batch.campaign_id,
+                  batch_number: nextBatchNum,
+                  status: 'pending',
+                  visits_target: rescheduleCount,
+                  scheduled_at: retryScheduledAt
+                });
+
+                console.log(`🔁 [Worker] Batch #${batch.batch_number} delivered ${completedVisits}/${batch.visits_target}. Auto-rescheduled ${rescheduleCount} remaining visits into Batch #${nextBatchNum} for campaign "${batch.traffic_campaigns.name}" to ensure 100% target fulfillment.`);
+              }
             }
           }
 
@@ -765,6 +811,11 @@ async function runTrafficBatchWorker() {
         .eq('status', 'running');
 
       for (const camp of runningCampaigns || []) {
+        // Skip strict Google SERP campaigns where fallback is disabled and visits delivered is 0 to avoid burning Apify credits
+        if (camp.traffic_source === 'serp_google' && camp.serp_fallback_to_direct === false && (camp.visits_completed === 0 || camp.status === 'failed')) {
+          continue;
+        }
+
         const needed = camp.total_visits - (camp.visits_completed || 0);
         if (needed > 0) {
           const { count: liveBatchesCount } = await supabase
