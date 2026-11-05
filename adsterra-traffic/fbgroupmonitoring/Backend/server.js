@@ -380,15 +380,28 @@ async function runTrafficBatchWorker() {
           }
 
           // 2. Query default dataset items to verify success count and categorize navigation paths & errors
+          let unrankedUrls = [];
           if (run.defaultDatasetId) {
             try {
               const datasetRes = await client.dataset(run.defaultDatasetId).listItems({ limit: 500 });
               if (datasetRes && Array.isArray(datasetRes.items)) {
                 let verifiedSuccess = 0;
+                const unrankedUrlsSet = new Set();
+                const rankedUrlsSet = new Set();
+
                 for (const it of datasetRes.items) {
+                  const targetUrl = it.inputUrl || it.targetUrl || it.url;
+                  const pathStr = Array.isArray(it.navigationPath) ? it.navigationPath.join(' ') : '';
+                  const isNotRanked = /Fallback: target_not_found_in_serp/i.test(pathStr) || it.errorType === 'serp_not_ranked';
+                  const isRanked = (typeof it.serpRankFound === 'number' && it.serpRankFound > 0) || (pathStr && /Google SERP \(Rank #\d+/i.test(pathStr));
+
+                  if (targetUrl) {
+                    if (isNotRanked) unrankedUrlsSet.add(targetUrl);
+                    if (isRanked) rankedUrlsSet.add(targetUrl);
+                  }
+
                   if (it.status === 'SUCCESS') {
                     verifiedSuccess++;
-                    const pathStr = Array.isArray(it.navigationPath) ? it.navigationPath.join(' ') : '';
                     if (/Fallback: google_captcha_detected/i.test(pathStr)) {
                       fallbackDirect++;
                       captchaAvoided++;
@@ -408,6 +421,39 @@ async function runTrafficBatchWorker() {
                     }
                   }
                 }
+
+                // URLs that failed to rank in Google top 20 and never succeeded in this batch
+                unrankedUrls = Array.from(unrankedUrlsSet).filter(u => !rankedUrlsSet.has(u));
+
+                // Auto-Prune unranked URLs from campaign so future batches only target working URLs!
+                if (unrankedUrls.length > 0 && batch.traffic_campaigns.traffic_source === 'serp_google') {
+                  const currentStartUrls = Array.isArray(batch.traffic_campaigns.start_urls) ? batch.traffic_campaigns.start_urls : [];
+                  const normalizeUrl = (u) => {
+                    const raw = typeof u === 'string' ? u : (u?.url || '');
+                    return raw.trim().toLowerCase().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+                  };
+                  const unrankedNormalized = new Set(unrankedUrls.map(normalizeUrl));
+
+                  const remainingUrls = currentStartUrls.filter(item => {
+                    const norm = normalizeUrl(item);
+                    return !unrankedNormalized.has(norm);
+                  });
+
+                  // Only prune if at least 1 ranked URL remains to receive future visits
+                  if (remainingUrls.length > 0 && remainingUrls.length < currentStartUrls.length) {
+                    const prunedCount = currentStartUrls.length - remainingUrls.length;
+                    await supabase.from('traffic_campaigns').update({
+                      start_urls: remainingUrls,
+                      updated_at: new Date().toISOString()
+                    }).eq('id', batch.campaign_id);
+
+                    // Update local copy so subsequent steps in this tick see the pruned list
+                    batch.traffic_campaigns.start_urls = remainingUrls;
+
+                    console.log(`🎯 [Worker] Auto-pruned ${prunedCount} unranked URL(s) from campaign "${batch.traffic_campaigns.name}". Remaining active URLs: ${remainingUrls.length}. Future batches will only target ranked pages.`);
+                  }
+                }
+
                 if (completedVisits === 0 && verifiedSuccess > 0) {
                   completedVisits = verifiedSuccess;
                 }
@@ -444,6 +490,7 @@ async function runTrafficBatchWorker() {
               fallbackDirect,
               captchaAvoided,
               notRankedCount,
+              unrankedUrls,
               failedSessions,
               failureBreakdown,
               failureDescriptions,

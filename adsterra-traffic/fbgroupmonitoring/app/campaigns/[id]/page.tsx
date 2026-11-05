@@ -396,6 +396,14 @@ export default function CampaignDetailPage() {
                                   ({b.run_output.notRankedCount} not in top 20)
                                 </span>
                               )}
+                              {b.run_output.unrankedUrls && b.run_output.unrankedUrls.length > 0 && (
+                                <span
+                                  className="text-amber-400 font-medium cursor-help"
+                                  title={`Auto-pruned from future batches:\n${b.run_output.unrankedUrls.join("\n")}`}
+                                >
+                                  ⚡ Pruned {b.run_output.unrankedUrls.length} unranked URL{b.run_output.unrankedUrls.length > 1 ? 's' : ''} from future batches
+                                </span>
+                              )}
                               {b.run_output.failureBreakdown &&
                                 Object.entries(b.run_output.failureBreakdown).map(([errKey, count]: [string, any]) => {
                                   if (!count || Number(count) <= 0) return null;
