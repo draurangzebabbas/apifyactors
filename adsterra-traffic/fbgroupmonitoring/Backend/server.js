@@ -684,11 +684,30 @@ async function runTrafficBatchWorker() {
           scrollBehaviorResolved = 'human-random';
         }
 
+        // Clean & build target items for actor:
+        // When in SERP mode, auto-generate clean per-URL search queries without protocols (e.g. site:domain.com/path)
+        // or respect the user-supplied custom query so Google matches indexed results smoothly.
+        const formattedStartUrls = Array.isArray(campaign.start_urls)
+          ? campaign.start_urls.map(item => {
+              const urlStr = typeof item === 'string' ? item : item.url;
+              if (!urlStr) return item;
+
+              if (trafficSrc === 'serp_google') {
+                let serpQuery = (campaign.serp_custom_query || '').trim();
+                if (!serpQuery) {
+                  const cleanDomainPath = urlStr.replace(/^https?:\/\//i, '');
+                  serpQuery = `site:${cleanDomainPath}`;
+                }
+                return { url: urlStr, serpQuery };
+              }
+
+              return typeof item === 'string' ? { url: item } : item;
+            })
+          : [];
+
         const actorInput = {
-          // Target URLs — actor expects requestListSources format [{url: "..."}]
-          startUrls: Array.isArray(campaign.start_urls)
-            ? campaign.start_urls.map(item => typeof item === 'string' ? { url: item } : item)
-            : [],
+          // Target URLs — actor expects requestListSources format [{url: "...", serpQuery?: "..."}]
+          startUrls: formattedStartUrls,
           // Traffic control
           totalVisits: batch.visits_target,       // actor field name is totalVisits
           maxConcurrentSessions: 5,               // 5 concurrent browsers for smooth, prompt throughput
