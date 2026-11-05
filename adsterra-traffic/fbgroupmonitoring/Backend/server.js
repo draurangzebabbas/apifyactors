@@ -548,24 +548,27 @@ async function runTrafficBatchWorker() {
             if (camp.delivery_mode === 'recurring') {
               console.log(`🔄 [Worker] Recurring campaign "${camp.name}" cycle completed. Checking credits for renewal...`);
               const renewalVisits = camp.total_visits;
+              const renewalMultiplier = camp.traffic_source === 'serp_google' ? 2 : 1;
+              const renewalCost = renewalVisits * renewalMultiplier;
+
               const { data: userCreds } = await supabase
                 .from('traffic_credits')
                 .select('balance, total_used')
                 .eq('user_id', camp.user_id)
                 .single();
 
-              if (userCreds && userCreds.balance >= renewalVisits) {
+              if (userCreds && userCreds.balance >= renewalCost) {
                 await supabase.from('traffic_credits').update({
-                  balance: userCreds.balance - renewalVisits,
-                  total_used: (userCreds.total_used || 0) + renewalVisits,
+                  balance: userCreds.balance - renewalCost,
+                  total_used: (userCreds.total_used || 0) + renewalCost,
                   updated_at: new Date().toISOString()
                 }).eq('user_id', camp.user_id);
 
                 await supabase.from('credit_transactions').insert({
                   user_id: camp.user_id,
                   type: 'debit',
-                  amount: -renewalVisits,
-                  description: `Recurring Traffic Renewal: ${camp.name} (${renewalVisits} visits)`
+                  amount: -renewalCost,
+                  description: `Recurring Traffic Renewal: ${camp.name} (${renewalVisits} visits @ ${renewalMultiplier} cr/ea)`
                 });
 
                 const renewDuration = camp.recurring_interval_hours || camp.duration_hours || 24;
@@ -765,7 +768,7 @@ async function runTrafficBatchWorker() {
           maxInternalPages: campaign.max_internal_pages || 2,
           // SERP settings
           serpCustomQuery: campaign.serp_custom_query || '',
-          serpMaxRetries: campaign.serp_max_retries || 3,
+          serpMaxRetries: 1,
           serpFallbackToDirect: campaign.serp_fallback_to_direct ?? false,
           // Proxy
           proxyConfiguration: proxyConfig,
@@ -988,8 +991,9 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
       }
     }
 
-    // 1 credit = 1 visit
-    const creditsRequired = visits;
+    // Rate calculation: Google SERP requires real residential browser searches, charged at 2 credits / visit. Other channels are 1 credit / visit.
+    const creditMultiplier = traffic_source === 'serp_google' ? 2 : 1;
+    const creditsRequired = visits * creditMultiplier;
 
     // Check user credits
     const { data: creditRow, error: credErr } = await supabase

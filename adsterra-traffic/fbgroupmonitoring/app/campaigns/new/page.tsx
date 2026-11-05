@@ -213,7 +213,8 @@ export default function NewCampaignPage() {
   }
 
   // Calculations
-  const visitsCost = totalVisits
+  const creditMultiplier = trafficSource === "serp_google" ? 2 : 1
+  const visitsCost = totalVisits * creditMultiplier
   const numBatches = Math.ceil(totalVisits / 100)
   const visitsPerHour = Math.round(totalVisits / durationHours)
   const hasEnoughCredits = balance !== null && balance >= visitsCost
@@ -732,7 +733,9 @@ export default function NewCampaignPage() {
                     </div>
                     <div>
                       <div className="text-muted-foreground text-xs">{deliveryMode === "recurring" ? "Cost Per Cycle" : "Total Cost"}</div>
-                      <div className="font-semibold text-primary">{visitsCost.toLocaleString()} credits</div>
+                      <div className="font-semibold text-primary">
+                        {visitsCost.toLocaleString()} credits {trafficSource === "serp_google" && <span className="text-[10px] text-muted-foreground font-normal">(2x SERP rate)</span>}
+                      </div>
                     </div>
                     <div>
                       <div className="text-muted-foreground text-xs">Balance After First Cycle</div>
@@ -796,7 +799,7 @@ export default function NewCampaignPage() {
                         Simulated Referral (Search Engines &amp; Social Referrers)
                       </SelectItem>
                       <SelectItem value="serp_google">
-                        Google Search (SERP) — Real Keyword Search &amp; Organic Click
+                        Google Search (SERP) — Real Keyword Search &amp; Organic Click (2 credits / visit)
                       </SelectItem>
                       <SelectItem value="direct">
                         Direct Navigation (Type URL in browser)
@@ -843,22 +846,35 @@ export default function NewCampaignPage() {
                     </div>
 
                     {/* Fallback to Direct Referrer Switch */}
-                    <div className="flex items-center justify-between p-3 bg-background/60 border rounded-lg">
-                      <div className="space-y-0.5">
-                        <div className="text-xs font-semibold flex items-center gap-1.5">
-                          <span>Organic Referrer Fallback</span>
-                          <Badge variant="outline" className="text-[9px] h-4 text-emerald-500 border-emerald-500/30">
-                            Recommended
-                          </Badge>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-3 bg-background/60 border rounded-lg">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-semibold flex items-center gap-1.5">
+                            <span>Organic Referrer Fallback</span>
+                            <Badge variant="outline" className="text-[9px] h-4 text-emerald-500 border-emerald-500/30">
+                              Recommended
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            If Google triggers a CAPTCHA or your page isn&apos;t ranked in the top 20, automatically visit with a Google referrer header so no paid visits are wasted.
+                          </p>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">
-                          If Google triggers a CAPTCHA or your page isn&apos;t ranked in the top 20, automatically visit with a Google referrer header so no paid visits are wasted.
-                        </p>
+                        <Switch
+                          checked={serpFallbackToDirect}
+                          onCheckedChange={setSerpFallbackToDirect}
+                        />
                       </div>
-                      <Switch
-                        checked={serpFallbackToDirect}
-                        onCheckedChange={setSerpFallbackToDirect}
-                      />
+
+                      {!serpFallbackToDirect && (
+                        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs space-y-1 text-amber-300">
+                          <div className="font-semibold flex items-center gap-1.5 text-amber-400">
+                            ⚠️ Strict SERP Mode Active (Credits Non-Refundable If Failed)
+                          </div>
+                          <p className="text-[11px] leading-relaxed text-amber-200/90">
+                            In strict mode, visits are strictly executed through live Google SERP organic clicks. Your target URLs must rank in Google&apos;s top 20 and your residential proxies must pass Google CAPTCHAs. Because server and headless browser compute is consumed attempting the live searches, <strong>credits are non-refundable if the campaign fails to find your URLs or gets blocked by Google</strong>. Keep Fallback enabled for 100% guaranteed delivery.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Proxy Vault / Selector */}
