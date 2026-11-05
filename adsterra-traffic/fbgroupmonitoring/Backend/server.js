@@ -885,10 +885,33 @@ cron.schedule('*/10 * * * * *', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Health Routes
+  // Health & Heartbeat Routes (Keep-Alive from Supabase pg_cron)
   // ─────────────────────────────────────────────────────────────────────────────
-  app.get('/health', (req, res) => res.json({ status: 'ok', service: 'traffic-backend' }));
-  app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'traffic-backend', time: new Date().toISOString() }));
+  let heartbeatCount = 0;
+  const handleHeartbeat = (req, res) => {
+    heartbeatCount++;
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const nowStr = new Date().toLocaleTimeString('en-US', { hour12: true });
+
+    console.log(`💓 [Heartbeat #${heartbeatCount}] Keep-alive ping received from ${userAgent} (${clientIp}) at ${nowStr} — Render stays awake!`);
+
+    // Ensure worker evaluates any pending batches on ping
+    setImmediate(() => runTrafficBatchWorker());
+
+    res.json({
+      status: 'ok',
+      service: 'traffic-backend',
+      heartbeatCount,
+      uptimeSeconds: Math.round(process.uptime()),
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  app.get('/health', handleHeartbeat);
+  app.get('/api/health', handleHeartbeat);
+  app.get('/heartbeat', handleHeartbeat);
+  app.get('/api/heartbeat', handleHeartbeat);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // User Credits API
