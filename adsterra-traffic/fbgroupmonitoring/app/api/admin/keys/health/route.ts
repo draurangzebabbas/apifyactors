@@ -38,14 +38,27 @@ export async function POST(req: Request) {
     const results = await Promise.all(
       (keys || []).map(async (key: any) => {
         try {
-          const [uRes, lRes] = await Promise.all([
-            fetch(`https://api.apify.com/v2/users/me/usage/monthly?token=${key.key_value}`),
-            fetch(`https://api.apify.com/v2/users/me/limits?token=${key.key_value}`)
+          const [userRes, lRes, uRes] = await Promise.all([
+            fetch(`https://api.apify.com/v2/users/me?token=${key.key_value}`),
+            fetch(`https://api.apify.com/v2/users/me/limits?token=${key.key_value}`),
+            fetch(`https://api.apify.com/v2/users/me/usage/monthly?token=${key.key_value}`)
           ]);
 
-          const uBody = await uRes.json().catch(() => ({}));
-          const lBody = lRes.ok ? await lRes.json().catch(() => ({})) : {};
+          if (userRes.status === 401) {
+            const updated = {
+              status: "FAILED",
+              health: 0,
+              last_checked_at: new Date().toISOString()
+            };
+            await supabase.from("api_keys").update(updated).eq("id", key.id);
+            return { id: key.id, ...updated };
+          }
 
+          const userData = userRes.ok ? await userRes.json().catch(() => ({})) : {};
+          const lBody = lRes.ok ? await lRes.json().catch(() => ({})) : {};
+          const uBody = uRes.ok ? await uRes.json().catch(() => ({})) : {};
+
+          const actualEmail = userData?.data?.email || userData?.data?.username || key.key_name;
           const usage_usd = Number(
             uBody?.data?.totalUsageCreditsUsdAfterVolumeDiscount ??
             lBody?.data?.current?.monthlyUsageUsd ??
@@ -58,13 +71,13 @@ export async function POST(req: Request) {
             5.0
           );
 
+          const actorsEnabled = userData?.data?.effectivePlatformFeatures?.ACTORS?.isEnabled !== false;
+          const hardLimitExceeded = userData?.data?.effectivePlatformFeatures?.ACTORS?.disabledReasonType === "MONTHLY_TOTAL_USAGE_HARD_LIMIT_EXCEEDED";
+
           let status = "ACTIVE";
           let health = 100;
 
-          if (uRes.status === 401) {
-            status = "FAILED";
-            health = 0;
-          } else if (uRes.status === 429 || usage_usd >= limit_usd) {
+          if (!actorsEnabled || hardLimitExceeded || usage_usd >= limit_usd || uRes.status === 429) {
             status = "RATE_LIMITED";
             health = 0;
           } else if (limit_usd > 0) {
@@ -73,6 +86,7 @@ export async function POST(req: Request) {
           }
 
           const updated = {
+            key_name: actualEmail,
             status,
             health,
             usage_usd,

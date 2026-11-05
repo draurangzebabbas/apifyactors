@@ -44,6 +44,10 @@ interface Batch {
     fallbackDirect?: number
     captchaAvoided?: number
     notRankedCount?: number
+    failedSessions?: number
+    failureBreakdown?: Record<string, number>
+    failureDescriptions?: Record<string, string>
+    lastError?: string
   } | null
 }
 
@@ -57,6 +61,8 @@ interface Campaign {
   duration_hours: number
   visits_per_batch: number
   traffic_source: string
+  serp_fallback_to_direct?: boolean
+  serp_custom_query?: string
   delivery_mode?: string
   traffic_curve?: string
   daily_shape?: string
@@ -311,8 +317,13 @@ export default function CampaignDetailPage() {
                 <div className="text-lg font-bold mt-1 capitalize">
                   {campaign.traffic_source === "serp_google" ? "Google SERP" : campaign.traffic_source === "direct" ? "Direct" : campaign.traffic_source === "backlink" ? "Backlink" : "Referral"}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {campaign.dwell_time_min_seconds}s - {campaign.dwell_time_max_seconds}s dwell
+                <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                  <div>{campaign.dwell_time_min_seconds}s - {campaign.dwell_time_max_seconds}s dwell</div>
+                  {campaign.traffic_source === "serp_google" && (
+                    <div className={campaign.serp_fallback_to_direct ? "text-emerald-400 font-medium" : "text-amber-400 font-medium"}>
+                      {campaign.serp_fallback_to_direct ? "✓ Fallback to direct enabled" : "⚠️ Strict SERP (no fallback)"}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -363,7 +374,7 @@ export default function CampaignDetailPage() {
                       <TableCell>
                         <div className="space-y-1">
                           <div className="font-medium">{b.visits_completed || 0}</div>
-                          {campaign.traffic_source === "serp_google" && b.run_output && (
+                          {b.run_output && (
                             <div className="flex flex-col gap-0.5 text-[10px]">
                               {(b.run_output.serpPureClicks ?? 0) > 0 && (
                                 <span className="text-emerald-500 font-medium">
@@ -383,6 +394,26 @@ export default function CampaignDetailPage() {
                               {(b.run_output.notRankedCount ?? 0) > 0 && (
                                 <span className="text-muted-foreground">
                                   ({b.run_output.notRankedCount} not in top 20)
+                                </span>
+                              )}
+                              {b.run_output.failureBreakdown &&
+                                Object.entries(b.run_output.failureBreakdown).map(([errKey, count]: [string, any]) => {
+                                  if (!count || Number(count) <= 0) return null;
+                                  let label = `${count} ${errKey.replace(/_/g, " ")}`;
+                                  if (errKey === "serp_not_ranked") label = `${count} not in Google Top 20`;
+                                  else if (errKey === "google_captcha_detected") label = `${count} Google CAPTCHA`;
+                                  else if (errKey === "click_landed_on_google") label = `${count} clicked back to Google`;
+                                  else if (errKey === "network_error") label = `${count} proxy/network error`;
+
+                                  return (
+                                    <span key={errKey} className="text-red-400 font-medium">
+                                      ✗ {label}
+                                    </span>
+                                  );
+                                })}
+                              {b.error_message && !b.run_output.failureBreakdown && (
+                                <span className="text-red-400 text-[10px]">
+                                  {b.error_message}
                                 </span>
                               )}
                             </div>

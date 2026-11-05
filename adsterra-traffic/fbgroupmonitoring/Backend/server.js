@@ -102,14 +102,23 @@ async function requireAdmin(req, res, next) {
 // ─────────────────────────────────────────────────────────────────────────────
 async function checkApifyKeyHealth(key) {
   try {
-    const [uRes, lRes] = await Promise.all([
-      fetch(`https://api.apify.com/v2/users/me/usage/monthly?token=${key.key_value}`),
-      fetch(`https://api.apify.com/v2/users/me/limits?token=${key.key_value}`)
+    const [userRes, lRes, uRes] = await Promise.all([
+      fetch(`https://api.apify.com/v2/users/me?token=${key.key_value}`),
+      fetch(`https://api.apify.com/v2/users/me/limits?token=${key.key_value}`),
+      fetch(`https://api.apify.com/v2/users/me/usage/monthly?token=${key.key_value}`)
     ]);
 
-    const uBody = await uRes.json().catch(() => ({}));
-    const lBody = lRes.ok ? await lRes.json().catch(() => ({})) : {};
+    if (userRes.status === 401) {
+      const updateData = { status: 'FAILED', health: 0, last_checked_at: new Date().toISOString() };
+      await supabase.from('api_keys').update(updateData).eq('id', key.id);
+      return { ...key, ...updateData };
+    }
 
+    const userData = userRes.ok ? await userRes.json().catch(() => ({})) : {};
+    const lBody = lRes.ok ? await lRes.json().catch(() => ({})) : {};
+    const uBody = uRes.ok ? await uRes.json().catch(() => ({})) : {};
+
+    const actualEmail = userData?.data?.email || userData?.data?.username || key.key_name;
     const usage_usd = Number(
       uBody?.data?.totalUsageCreditsUsdAfterVolumeDiscount ??
       lBody?.data?.current?.monthlyUsageUsd ??
@@ -122,42 +131,27 @@ async function checkApifyKeyHealth(key) {
       5.0
     );
 
-    if (uRes.status === 401) {
-      const updateData = { status: 'FAILED', health: 0, usage_usd, limit_usd };
-      await supabase.from('api_keys').update(updateData).eq('id', key.id);
-      return { ...key, ...updateData };
-    }
+    const actorsEnabled = userData?.data?.effectivePlatformFeatures?.ACTORS?.isEnabled !== false;
+    const hardLimitExceeded = userData?.data?.effectivePlatformFeatures?.ACTORS?.disabledReasonType === 'MONTHLY_TOTAL_USAGE_HARD_LIMIT_EXCEEDED';
 
-    if (!uRes.ok) {
-      const errMsg = uBody?.error?.message || uRes.statusText || '';
-      const isAuthError = /token is not valid|user was not found|invalid token/i.test(errMsg);
-      const isQuota = uRes.status === 429 || uRes.status === 402 || /quota|monthly|limit|exceed/i.test(errMsg);
-
-      const status = isAuthError ? 'FAILED' : (isQuota ? 'RATE_LIMITED' : (key.status || 'ACTIVE'));
-      const health = (isAuthError || isQuota) ? 0 : (key.health ?? 50);
-
-      const updateData = { status, health, usage_usd, limit_usd };
-      await supabase.from('api_keys').update(updateData).eq('id', key.id);
-      return { ...key, ...updateData };
-    }
-
-    const remainingUsd = limit_usd - usage_usd;
+    let status = 'ACTIVE';
     let health = 100;
-    if (limit_usd > 0) {
+
+    if (!actorsEnabled || hardLimitExceeded || usage_usd >= limit_usd || uRes.status === 429) {
+      status = 'RATE_LIMITED';
+      health = 0;
+    } else if (limit_usd > 0) {
+      const remainingUsd = limit_usd - usage_usd;
       health = Math.max(0, Math.min(100, Math.round((remainingUsd / limit_usd) * 100)));
     }
 
-    let status = 'ACTIVE';
-    if (usage_usd >= limit_usd || remainingUsd <= 0.005) {
-      status = 'RATE_LIMITED';
-      health = 0;
-    }
-
     const updateData = {
+      key_name: actualEmail,
       status,
       health,
       usage_usd,
       limit_usd,
+      last_checked_at: new Date().toISOString(),
       ...(status === 'ACTIVE' ? { cooldown_until: null, fail_count: 0 } : {})
     };
 
@@ -341,249 +335,139 @@ async function runTrafficBatchWorker() {
 
           if (!run) continue;
 
-          if (run.status === 'SUCCEEDED') {
-            // Read the OUTPUT from key-value store for actual delivered visits
-            let completedVisits = batch.visits_target; // fallback
-            let serpPureClicks = 0;
-            let fallbackDirect = 0;
-            let captchaAvoided = 0;
-            let notRankedCount = 0;
+          const isTerminal = ['SUCCEEDED', 'FAILED', 'TIMED-OUT', 'ABORTED'].includes(run.status);
+          if (!isTerminal) continue;
 
+          console.log(`[Worker] Batch #${batch.batch_number} (run ${batch.apify_run_id} via ${keyObj.key_name || keyObj.id}) finished with status: ${run.status}`);
+
+          // Extract actual delivered visits and deep failure diagnostics from KV store and dataset
+          let completedVisits = 0;
+          let failedSessions = 0;
+          let failureBreakdown = {};
+          let failureDescriptions = {};
+          let serpPureClicks = 0;
+          let fallbackDirect = 0;
+          let captchaAvoided = 0;
+          let notRankedCount = 0;
+          let lastErrorMessage = run.statusMessage || null;
+
+          // 1. Try reading RUN_SUMMARY and OUTPUT from Apify Key-Value Store
+          try {
+            const kvStoreId = run.defaultKeyValueStoreId;
+            if (kvStoreId) {
+              const [summaryRes, outputRes] = await Promise.all([
+                fetch(`https://api.apify.com/v2/key-value-stores/${kvStoreId}/records/RUN_SUMMARY?token=${keyObj.key_value}`).catch(() => null),
+                fetch(`https://api.apify.com/v2/key-value-stores/${kvStoreId}/records/OUTPUT?token=${keyObj.key_value}`).catch(() => null)
+              ]);
+
+              const summaryData = summaryRes && summaryRes.ok ? await summaryRes.json().catch(() => null) : null;
+              const outputData = outputRes && outputRes.ok ? await outputRes.json().catch(() => null) : null;
+              const rep = summaryData || outputData;
+
+              if (rep && typeof rep === 'object') {
+                if (typeof rep.successfulVisitsDelivered === 'number') {
+                  completedVisits = rep.successfulVisitsDelivered;
+                } else if (typeof rep.successfulSessions === 'number') {
+                  completedVisits = rep.successfulSessions;
+                }
+                failedSessions = rep.failedSessions || 0;
+                failureBreakdown = rep.failureBreakdown || {};
+                failureDescriptions = rep.failureDescriptions || {};
+              }
+            }
+          } catch (kvErr) {
+            console.warn(`[Worker] Could not read KV store for run ${batch.apify_run_id}:`, kvErr.message);
+          }
+
+          // 2. Query default dataset items to verify success count and categorize navigation paths & errors
+          if (run.defaultDatasetId) {
             try {
-              const kvStoreId = run.defaultKeyValueStoreId;
-              if (kvStoreId) {
-                const kvRes = await fetch(
-                  `https://api.apify.com/v2/key-value-stores/${kvStoreId}/records/OUTPUT?token=${keyObj.key_value}`
-                );
-                if (kvRes.ok) {
-                  const kvOutput = await kvRes.json();
-                  if (typeof kvOutput.successfulVisitsDelivered === 'number') {
-                    completedVisits = kvOutput.successfulVisitsDelivered;
-                  }
-                }
-              }
-
-              // For SERP campaigns, query dataset items to extract pure SERP vs fallback statistics
-              if (batch.traffic_campaigns.traffic_source === 'serp_google' && run.defaultDatasetId) {
-                try {
-                  const datasetRes = await client.dataset(run.defaultDatasetId).listItems({ limit: 100 });
-                  if (datasetRes && Array.isArray(datasetRes.items)) {
-                    for (const it of datasetRes.items) {
-                      if (it.status === 'SUCCESS') {
-                        const pathStr = Array.isArray(it.navigationPath) ? it.navigationPath.join(' ') : '';
-                        if (/Fallback: google_captcha_detected/i.test(pathStr)) {
-                          fallbackDirect++;
-                          captchaAvoided++;
-                        } else if (/Fallback: target_not_found_in_serp/i.test(pathStr)) {
-                          fallbackDirect++;
-                          notRankedCount++;
-                        } else if (/Fallback/i.test(pathStr)) {
-                          fallbackDirect++;
-                        } else {
-                          serpPureClicks++;
-                        }
-                      }
+              const datasetRes = await client.dataset(run.defaultDatasetId).listItems({ limit: 500 });
+              if (datasetRes && Array.isArray(datasetRes.items)) {
+                let verifiedSuccess = 0;
+                for (const it of datasetRes.items) {
+                  if (it.status === 'SUCCESS') {
+                    verifiedSuccess++;
+                    const pathStr = Array.isArray(it.navigationPath) ? it.navigationPath.join(' ') : '';
+                    if (/Fallback: google_captcha_detected/i.test(pathStr)) {
+                      fallbackDirect++;
+                      captchaAvoided++;
+                    } else if (/Fallback: target_not_found_in_serp/i.test(pathStr)) {
+                      fallbackDirect++;
+                      notRankedCount++;
+                    } else if (/Fallback/i.test(pathStr)) {
+                      fallbackDirect++;
+                    } else {
+                      serpPureClicks++;
+                    }
+                  } else if (it.status === 'FAILED') {
+                    const eType = it.errorType || 'unknown';
+                    failureBreakdown[eType] = (failureBreakdown[eType] || 0) + 1;
+                    if (!lastErrorMessage && it.errorMessage) {
+                      lastErrorMessage = it.errorMessage;
                     }
                   }
-                } catch (dErr) {
-                  console.warn(`[Worker] Could not query dataset breakdown for batch #${batch.batch_number}:`, dErr.message);
+                }
+                if (completedVisits === 0 && verifiedSuccess > 0) {
+                  completedVisits = verifiedSuccess;
                 }
               }
-            } catch (kvErr) {
-              console.warn(`[Worker] Could not read KV OUTPUT for batch #${batch.batch_number}:`, kvErr.message);
+            } catch (dErr) {
+              console.warn(`[Worker] Could not query dataset breakdown for batch #${batch.batch_number}:`, dErr.message);
             }
-            console.log(`✅ [Worker] Batch #${batch.batch_number} (run ${batch.apify_run_id} via ${keyObj.key_name || keyObj.id}) succeeded! Delivered: ${completedVisits}/${batch.visits_target}`);
+          }
 
-            await supabase.from('traffic_batches').update({
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-              visits_completed: completedVisits,
-              run_output: {
-                runId: run.id,
-                exitCode: run.exitCode,
-                stats: run.stats,
-                serpPureClicks,
-                fallbackDirect,
-                captchaAvoided,
-                notRankedCount
-              }
-            }).eq('id', batch.id);
+          // If run was SUCCEEDED and had no failures recorded, default completed to target
+          if (run.status === 'SUCCEEDED' && completedVisits === 0 && failedSessions === 0 && Object.keys(failureBreakdown).length === 0) {
+            completedVisits = batch.visits_target;
+          }
 
-            // Increment campaign visits_completed
-            const newVisitsCompleted = (batch.traffic_campaigns.visits_completed || 0) + completedVisits;
-            const isFinished = newVisitsCompleted >= batch.traffic_campaigns.total_visits;
+          const batchStatus = completedVisits >= batch.visits_target ? 'completed' : (completedVisits > 0 ? 'completed' : 'failed');
+          const batchError = completedVisits === 0
+            ? (lastErrorMessage || run.statusMessage || `Batch delivered 0/${batch.visits_target} visits (${run.status})`)
+            : null;
 
-            await supabase.from('traffic_campaigns').update({
-              visits_completed: newVisitsCompleted,
-              ...(isFinished ? { status: 'completed', completed_at: new Date().toISOString() } : {})
-            }).eq('id', batch.campaign_id);
+          console.log(`[Worker] Batch #${batch.batch_number} result: status="${batchStatus}", delivered=${completedVisits}/${batch.visits_target}`);
 
-            if (isFinished) {
-              const camp = batch.traffic_campaigns;
-              if (camp.delivery_mode === 'recurring') {
-                // Handle Recurring Campaign Renewal:
-                console.log(`🔄 [Worker] Recurring campaign "${camp.name}" cycle completed. Checking credits for renewal...`);
-                const renewalVisits = camp.total_visits;
-                const { data: userCreds } = await supabase
-                  .from('traffic_credits')
-                  .select('balance, total_used')
-                  .eq('user_id', camp.user_id)
-                  .single();
-
-                if (userCreds && userCreds.balance >= renewalVisits) {
-                  // Deduct credits for next cycle
-                  await supabase.from('traffic_credits').update({
-                    balance: userCreds.balance - renewalVisits,
-                    total_used: (userCreds.total_used || 0) + renewalVisits,
-                    updated_at: new Date().toISOString()
-                  }).eq('user_id', camp.user_id);
-
-                  await supabase.from('credit_transactions').insert({
-                    user_id: camp.user_id,
-                    type: 'debit',
-                    amount: -renewalVisits,
-                    description: `Recurring Traffic Renewal: ${camp.name} (${renewalVisits} visits)`
-                  });
-
-                  // Schedule new cycle batches (at steady peak after cycle 1 ramp-up)
-                  const renewDuration = camp.recurring_interval_hours || camp.duration_hours || 24;
-                  const renewBatches = Math.ceil(renewalVisits / 100);
-                  const renewIntervalMs = (renewDuration * 3600 * 1000) / renewBatches;
-                  const renewStartTime = Date.now();
-
-                  // Get highest existing batch number
-                  const { data: lastBatch } = await supabase
-                    .from('traffic_batches')
-                    .select('batch_number')
-                    .eq('campaign_id', camp.id)
-                    .order('batch_number', { ascending: false })
-                    .limit(1)
-                    .single();
-
-                  const startBatchNum = (lastBatch?.batch_number || 0) + 1;
-                  const newBatchRows = [];
-                  let alloc = 0;
-
-                  for (let b = 0; b < renewBatches; b++) {
-                    const isLast = (b === renewBatches - 1);
-                    let bSize = isLast ? (renewalVisits - alloc) : Math.floor(renewalVisits / renewBatches);
-
-                    // Apply subtle jitter on recurring batches if enabled
-                    if (camp.humanize_jitter && !isLast && bSize > 10) {
-                      const jitterPercent = (Math.random() * 0.20) - 0.10; // ±10%
-                      bSize = Math.max(5, Math.min(100, Math.round(bSize * (1 + jitterPercent))));
-                    }
-                    alloc += bSize;
-
-                    let batchTime = renewStartTime + (b * renewIntervalMs);
-                    if (camp.humanize_jitter && b > 0) {
-                      batchTime += (Math.random() * 300000) - 150000; // ±2.5 min timing noise
-                    }
-
-                    newBatchRows.push({
-                      campaign_id: camp.id,
-                      batch_number: startBatchNum + b,
-                      status: 'pending',
-                      visits_target: bSize,
-                      scheduled_at: new Date(batchTime).toISOString()
-                    });
-                  }
-
-                  await supabase.from('traffic_batches').insert(newBatchRows);
-                  // Set traffic_curve to steady after initial cycle completes
-                  await supabase.from('traffic_campaigns').update({
-                    status: 'running',
-                    visits_completed: 0,
-                    traffic_curve: 'steady',
-                    updated_at: new Date().toISOString()
-                  }).eq('id', camp.id);
-
-                  console.log(`✅ [Worker] Recurring campaign "${camp.name}" successfully renewed for ${renewalVisits} visits (${renewBatches} batches).`);
-                } else {
-                  console.warn(`⚠️ [Worker] Recurring campaign "${camp.name}" paused due to insufficient credits.`);
-                  await supabase.from('traffic_campaigns').update({
-                    status: 'paused',
-                    updated_at: new Date().toISOString()
-                  }).eq('id', camp.id);
-
-                  await sendUserPushNotification(
-                    camp.user_id,
-                    '⚠️ Recurring Campaign Paused',
-                    `Your recurring campaign "${camp.name}" has completed its cycle but was paused due to low balance. Top up credits to resume automatically!`,
-                    `/campaigns/${camp.id}`
-                  );
-                }
-              } else {
-                console.log(`🎉 [Worker] Campaign "${batch.traffic_campaigns.name}" completed in full (${newVisitsCompleted}/${batch.traffic_campaigns.total_visits} visits).`);
-                await sendUserPushNotification(
-                  batch.traffic_campaigns.user_id,
-                  '🎉 Campaign Completed!',
-                  `Your traffic campaign "${batch.traffic_campaigns.name}" has completed! Delivered all ${batch.traffic_campaigns.total_visits.toLocaleString()} visits.`,
-                  `/campaigns/${batch.campaign_id}`
-                );
-              }
+          // Update batch record
+          await supabase.from('traffic_batches').update({
+            status: batchStatus,
+            completed_at: new Date().toISOString(),
+            visits_completed: completedVisits,
+            error_message: batchError,
+            run_output: {
+              runId: run.id,
+              runStatus: run.status,
+              exitCode: run.exitCode,
+              stats: run.stats,
+              serpPureClicks,
+              fallbackDirect,
+              captchaAvoided,
+              notRankedCount,
+              failedSessions,
+              failureBreakdown,
+              failureDescriptions,
+              lastError: lastErrorMessage
             }
+          }).eq('id', batch.id);
 
-            await keyManager.markSuccess(batch.apify_key_id);
+          // Update campaign progress
+          const currentCampDelivered = batch.traffic_campaigns.visits_completed || 0;
+          const newVisitsCompleted = currentCampDelivered + completedVisits;
+          const remainingForCampaign = batch.traffic_campaigns.total_visits - newVisitsCompleted;
+          const isFinished = remainingForCampaign <= 0;
 
-          } else if (['FAILED', 'TIMED-OUT', 'ABORTED'].includes(run.status)) {
-            console.warn(`❌ [Worker] Batch #${batch.batch_number} (run ${batch.apify_run_id} via ${keyObj.key_name || keyObj.id}) finished with status: ${run.status}`);
+          await supabase.from('traffic_campaigns').update({
+            visits_completed: newVisitsCompleted,
+            ...(isFinished ? { status: 'completed', completed_at: new Date().toISOString() } : {})
+          }).eq('id', batch.campaign_id);
 
-            // Even if the run timed out or aborted, recover all visits delivered before the cutoff
-            let partialDelivered = 0;
-            try {
-              if (run.defaultDatasetId) {
-                const datasetInfo = await client.dataset(run.defaultDatasetId).get();
-                if (datasetInfo && typeof datasetInfo.itemCount === 'number') {
-                  partialDelivered = datasetInfo.itemCount;
-                }
-              }
-            } catch (pErr) {
-              console.warn(`[Worker] Could not query dataset itemCount for run ${batch.apify_run_id}:`, pErr.message);
-            }
+          // If campaign still needs visits to satisfy 100% of the target, auto-reschedule!
+          if (!isFinished && batch.traffic_campaigns.status === 'running') {
+            const unmetInBatch = batch.visits_target - completedVisits;
+            const rescheduleCount = Math.min(unmetInBatch > 0 ? unmetInBatch : remainingForCampaign, remainingForCampaign);
 
-            // Fallback: check KV store if dataset had 0
-            if (partialDelivered === 0 && run.defaultKeyValueStoreId) {
-              try {
-                const kvRes = await fetch(
-                  `https://api.apify.com/v2/key-value-stores/${run.defaultKeyValueStoreId}/records/OUTPUT?token=${keyObj.key_value}`
-                );
-                if (kvRes.ok) {
-                  const kvOutput = await kvRes.json();
-                  if (typeof kvOutput.successfulVisitsDelivered === 'number') {
-                    partialDelivered = kvOutput.successfulVisitsDelivered;
-                  }
-                }
-              } catch (_) {}
-            }
-
-            console.log(`[Worker] Batch #${batch.batch_number} recovered ${partialDelivered}/${batch.visits_target} visits delivered before ${run.status}.`);
-
-            // Mark batch with its actual delivered visits
-            await supabase.from('traffic_batches').update({
-              status: partialDelivered >= batch.visits_target ? 'completed' : 'failed',
-              completed_at: new Date().toISOString(),
-              visits_completed: partialDelivered,
-              error_message: run.statusMessage || `Actor run finished with ${run.status} (${partialDelivered}/${batch.visits_target} delivered)`,
-              run_output: { runId: run.id, status: run.status, visitsDelivered: partialDelivered }
-            }).eq('id', batch.id);
-
-            // Credit the delivered visits to the campaign progress bar
-            if (partialDelivered > 0) {
-              const currentTotal = batch.traffic_campaigns.visits_completed || 0;
-              const newTotal = currentTotal + partialDelivered;
-              const isFinished = newTotal >= batch.traffic_campaigns.total_visits;
-
-              await supabase.from('traffic_campaigns').update({
-                visits_completed: newTotal,
-                ...(isFinished ? { status: 'completed', completed_at: new Date().toISOString() } : {})
-              }).eq('id', batch.campaign_id);
-            }
-
-            // Reschedule remaining missing visits so the campaign completes in full!
-            const remainingNeeded = batch.visits_target - partialDelivered;
-            if (remainingNeeded > 0) {
-              // Find highest batch number to append cleanly
+            if (rescheduleCount > 0) {
               const { data: maxBatch } = await supabase
                 .from('traffic_batches')
                 .select('batch_number')
@@ -593,20 +477,126 @@ async function runTrafficBatchWorker() {
                 .single();
 
               const nextBatchNum = (maxBatch?.batch_number || batch.batch_number) + 1;
-              const retryScheduledAt = new Date(Date.now() + 60000).toISOString(); // Retry in 1 minute
+              const retryScheduledAt = new Date(Date.now() + 15000).toISOString(); // 15s retry
 
               await supabase.from('traffic_batches').insert({
                 campaign_id: batch.campaign_id,
                 batch_number: nextBatchNum,
                 status: 'pending',
-                visits_target: remainingNeeded,
+                visits_target: rescheduleCount,
                 scheduled_at: retryScheduledAt
               });
 
-              console.log(`🔁 [Worker] Auto-rescheduled remaining ${remainingNeeded} visits for campaign "${batch.traffic_campaigns.name}" as Batch #${nextBatchNum} at ${retryScheduledAt}`);
+              console.log(`🔁 [Worker] Batch #${batch.batch_number} delivered ${completedVisits}/${batch.visits_target}. Auto-rescheduled ${rescheduleCount} remaining visits into Batch #${nextBatchNum} for campaign "${batch.traffic_campaigns.name}" to ensure 100% target fulfillment.`);
             }
+          }
 
-            await keyManager.markFailure(batch.apify_key_id, 500, run.statusMessage || run.status);
+          if (isFinished) {
+            const camp = batch.traffic_campaigns;
+            if (camp.delivery_mode === 'recurring') {
+              console.log(`🔄 [Worker] Recurring campaign "${camp.name}" cycle completed. Checking credits for renewal...`);
+              const renewalVisits = camp.total_visits;
+              const { data: userCreds } = await supabase
+                .from('traffic_credits')
+                .select('balance, total_used')
+                .eq('user_id', camp.user_id)
+                .single();
+
+              if (userCreds && userCreds.balance >= renewalVisits) {
+                await supabase.from('traffic_credits').update({
+                  balance: userCreds.balance - renewalVisits,
+                  total_used: (userCreds.total_used || 0) + renewalVisits,
+                  updated_at: new Date().toISOString()
+                }).eq('user_id', camp.user_id);
+
+                await supabase.from('credit_transactions').insert({
+                  user_id: camp.user_id,
+                  type: 'debit',
+                  amount: -renewalVisits,
+                  description: `Recurring Traffic Renewal: ${camp.name} (${renewalVisits} visits)`
+                });
+
+                const renewDuration = camp.recurring_interval_hours || camp.duration_hours || 24;
+                const renewBatches = Math.ceil(renewalVisits / 100);
+                const renewIntervalMs = (renewDuration * 3600 * 1000) / renewBatches;
+                const renewStartTime = Date.now();
+
+                const { data: lastBatch } = await supabase
+                  .from('traffic_batches')
+                  .select('batch_number')
+                  .eq('campaign_id', camp.id)
+                  .order('batch_number', { ascending: false })
+                  .limit(1)
+                  .single();
+
+                const startBatchNum = (lastBatch?.batch_number || 0) + 1;
+                const newBatchRows = [];
+                let alloc = 0;
+
+                for (let b = 0; b < renewBatches; b++) {
+                  const isLast = (b === renewBatches - 1);
+                  let bSize = isLast ? (renewalVisits - alloc) : Math.floor(renewalVisits / renewBatches);
+
+                  if (camp.humanize_jitter && !isLast && bSize > 10) {
+                    const jitterPercent = (Math.random() * 0.20) - 0.10;
+                    bSize = Math.max(5, Math.min(100, Math.round(bSize * (1 + jitterPercent))));
+                  }
+                  alloc += bSize;
+
+                  let batchTime = renewStartTime + (b * renewIntervalMs);
+                  if (camp.humanize_jitter && b > 0) {
+                    batchTime += (Math.random() * 300000) - 150000;
+                  }
+
+                  newBatchRows.push({
+                    campaign_id: camp.id,
+                    batch_number: startBatchNum + b,
+                    status: 'pending',
+                    visits_target: bSize,
+                    scheduled_at: new Date(batchTime).toISOString()
+                  });
+                }
+
+                await supabase.from('traffic_batches').insert(newBatchRows);
+                await supabase.from('traffic_campaigns').update({
+                  status: 'running',
+                  visits_completed: 0,
+                  traffic_curve: 'steady',
+                  updated_at: new Date().toISOString()
+                }).eq('id', camp.id);
+
+                console.log(`✅ [Worker] Recurring campaign "${camp.name}" successfully renewed for ${renewalVisits} visits (${renewBatches} batches).`);
+              } else {
+                console.warn(`⚠️ [Worker] Recurring campaign "${camp.name}" paused due to insufficient credits.`);
+                await supabase.from('traffic_campaigns').update({
+                  status: 'paused',
+                  updated_at: new Date().toISOString()
+                }).eq('id', camp.id);
+
+                await sendUserPushNotification(
+                  camp.user_id,
+                  '⚠️ Recurring Campaign Paused',
+                  `Your recurring campaign "${camp.name}" has completed its cycle but was paused due to low balance. Top up credits to resume automatically!`,
+                  `/campaigns/${camp.id}`
+                );
+              }
+            } else {
+              console.log(`🎉 [Worker] Campaign "${batch.traffic_campaigns.name}" completed in full (${newVisitsCompleted}/${batch.traffic_campaigns.total_visits} visits).`);
+              await sendUserPushNotification(
+                batch.traffic_campaigns.user_id,
+                '🎉 Campaign Completed!',
+                `Your traffic campaign "${batch.traffic_campaigns.name}" has completed! Delivered all ${batch.traffic_campaigns.total_visits.toLocaleString()} visits.`,
+                `/campaigns/${batch.campaign_id}`
+              );
+            }
+          }
+
+          // Handle key success or rate-limit failure
+          if (['FAILED', 'TIMED-OUT', 'ABORTED'].includes(run.status)) {
+            const isQuota = /quota|monthly|limit|exceed|rate limit|disabled/i.test(run.statusMessage || lastErrorMessage || '');
+            await keyManager.markFailure(batch.apify_key_id, isQuota ? 429 : 500, run.statusMessage || lastErrorMessage || run.status);
+          } else {
+            await keyManager.markSuccess(batch.apify_key_id);
           }
         } catch (bErr) {
           console.error(`[Worker] Error checking run ${batch.apify_run_id}:`, bErr.message);
@@ -763,6 +753,51 @@ async function runTrafficBatchWorker() {
           await keyManager.markFailure(key.id, httpStatus, launchErr.message);
         }
       }
+    }
+
+    // ── Phase 3: Watchdog for orphaned / stalled campaigns ───────────────────
+    // Detect any campaign marked 'running' that has 0 pending and 0 running batches
+    // while visits_completed < total_visits, and auto-generate the next batch!
+    try {
+      const { data: runningCampaigns } = await supabase
+        .from('traffic_campaigns')
+        .select('*')
+        .eq('status', 'running');
+
+      for (const camp of runningCampaigns || []) {
+        const needed = camp.total_visits - (camp.visits_completed || 0);
+        if (needed > 0) {
+          const { count: liveBatchesCount } = await supabase
+            .from('traffic_batches')
+            .select('id', { count: 'exact', head: true })
+            .eq('campaign_id', camp.id)
+            .in('status', ['running', 'pending']);
+
+          if (!liveBatchesCount || liveBatchesCount === 0) {
+            const { data: maxBatch } = await supabase
+              .from('traffic_batches')
+              .select('batch_number')
+              .eq('campaign_id', camp.id)
+              .order('batch_number', { ascending: false })
+              .limit(1)
+              .single();
+
+            const nextBatchNum = (maxBatch?.batch_number || 0) + 1;
+            const batchSize = Math.min(needed, camp.visits_per_batch || 100);
+
+            console.log(`🛡️ [Watchdog] Detected stalled campaign "${camp.name}" (${camp.visits_completed || 0}/${camp.total_visits} visits, 0 active batches). Auto-scheduling Batch #${nextBatchNum} (${batchSize} visits) immediately.`);
+            await supabase.from('traffic_batches').insert({
+              campaign_id: camp.id,
+              batch_number: nextBatchNum,
+              status: 'pending',
+              visits_target: batchSize,
+              scheduled_at: new Date().toISOString()
+            });
+          }
+        }
+      }
+    } catch (watchdogErr) {
+      console.warn('[Watchdog] Error in stalled campaign check:', watchdogErr.message);
     }
   } catch (err) {
     console.error('❌ [Worker] General loop error:', err.message);
