@@ -360,7 +360,7 @@ async function runTrafficBatchWorker() {
             } catch (kvErr) {
               console.warn(`[Worker] Could not read KV OUTPUT for batch #${batch.batch_number}:`, kvErr.message);
             }
-            console.log(`✅ [Worker] Batch #${batch.batch_number} (run ${batch.apify_run_id}) succeeded! Delivered: ${completedVisits}/${batch.visits_target}`);
+            console.log(`✅ [Worker] Batch #${batch.batch_number} (run ${batch.apify_run_id} via ${keyObj.key_name || keyObj.id}) succeeded! Delivered: ${completedVisits}/${batch.visits_target}`);
 
             await supabase.from('traffic_batches').update({
               status: 'completed',
@@ -487,7 +487,7 @@ async function runTrafficBatchWorker() {
             await keyManager.markSuccess(batch.apify_key_id);
 
           } else if (['FAILED', 'TIMED-OUT', 'ABORTED'].includes(run.status)) {
-            console.warn(`❌ [Worker] Batch #${batch.batch_number} failed with status ${run.status}`);
+            console.warn(`❌ [Worker] Batch #${batch.batch_number} (run ${batch.apify_run_id} via ${keyObj.key_name || keyObj.id}) failed with status ${run.status}`);
             await supabase.from('traffic_batches').update({
               status: 'failed',
               completed_at: new Date().toISOString(),
@@ -563,7 +563,7 @@ async function runTrafficBatchWorker() {
             : [],
           // Traffic control
           totalVisits: batch.visits_target,       // actor field name is totalVisits
-          maxConcurrentSessions: 2,               // actor field name is maxConcurrentSessions
+          maxConcurrentSessions: 5,               // 5 concurrent browsers for smooth, prompt throughput
           // Traffic source & referrer
           trafficSource: trafficSrc,              // enum: referrer|serp_google|backlink|direct
           referrerSource: campaign.referrer_source || 'preset_search',
@@ -584,7 +584,13 @@ async function runTrafficBatchWorker() {
 
         try {
           const client = new ApifyClient({ token: key.key_value });
-          const run = await client.actor(ACTOR_ID).start(actorInput);
+          // Start the Actor with explicit run options:
+          // - timeout: 0 (No timeout limit on Apify; run continues until all visits complete)
+          // - memory: 4096 (4 GB RAM for optimal headless Playwright performance)
+          const run = await client.actor(ACTOR_ID).start(actorInput, {
+            timeout: 0,
+            memory: 4096
+          });
 
           await supabase.from('traffic_batches').update({
             status: 'running',
@@ -599,7 +605,7 @@ async function runTrafficBatchWorker() {
             }).eq('id', campaign.id);
           }
 
-          console.log(`[Worker] Batch #${batch.batch_number} started successfully. Apify Run ID: ${run.id}`);
+          console.log(`[Worker] Batch #${batch.batch_number} started successfully. Apify Run ID: ${run.id} | Key: ${key.key_name || key.id}`);
         } catch (launchErr) {
           console.error(`❌ [Worker] Failed to launch batch #${batch.batch_number}:`, launchErr.message);
           const httpStatus = launchErr.statusCode || 500;
