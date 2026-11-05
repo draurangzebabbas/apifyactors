@@ -1405,8 +1405,11 @@ cron.schedule('*/10 * * * * *', () => {
         .update({ status: 'cancelled', updated_at: new Date().toISOString() })
         .eq('id', id);
 
-      // Refund credits to user
-      if (refundVisits > 0) {
+      // Refund credits to user for unexecuted pending visits (at whatever rate the campaign was charged)
+      const creditMultiplier = campaign.traffic_source === 'serp_google' ? 2 : 1;
+      const refundCredits = refundVisits * creditMultiplier;
+
+      if (refundCredits > 0) {
         const { data: creditRow } = await supabase
           .from('traffic_credits')
           .select('balance, total_used')
@@ -1417,8 +1420,8 @@ cron.schedule('*/10 * * * * *', () => {
           await supabase
             .from('traffic_credits')
             .update({
-              balance: creditRow.balance + refundVisits,
-              total_used: Math.max(0, creditRow.total_used - refundVisits),
+              balance: creditRow.balance + refundCredits,
+              total_used: Math.max(0, creditRow.total_used - refundCredits),
               updated_at: new Date().toISOString()
             })
             .eq('user_id', userId);
@@ -1426,8 +1429,8 @@ cron.schedule('*/10 * * * * *', () => {
           await supabase.from('credit_transactions').insert({
             user_id: userId,
             type: 'refund',
-            amount: refundVisits,
-            description: `Refund for cancelled campaign: ${campaign.name} (${refundVisits} unused visits)`
+            amount: refundCredits,
+            description: `Refund for cancelled campaign: ${campaign.name} (${refundVisits} unused visits @ ${creditMultiplier} cr/ea)`
           });
         }
       }
