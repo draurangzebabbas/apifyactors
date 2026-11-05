@@ -9,7 +9,9 @@ const webpush = require('web-push');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-const ACTOR_ID = process.env.APIFY_ACTOR_ID || 'wmJ51jY3JE7K6cO9u'; // adsterra-traffic Actor ID (published)
+// Apify Traffic Actor ID (hardcoded: deliberate_offspring/apifyactors)
+// Do NOT read from process.env to prevent stale/incorrect environment variables from breaking runs.
+const ACTOR_ID = 'wmJ51jY3JE7K6cO9u';
 
 // Middleware
 const ALLOWED_ORIGINS = [
