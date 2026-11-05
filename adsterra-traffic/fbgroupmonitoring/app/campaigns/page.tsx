@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/utils/supabase/client"
 import { toast } from "sonner"
+import { CampaignStatusBadge } from "@/components/campaign-status-badge"
 import {
   GlobeIcon,
   PlusIcon,
@@ -161,10 +162,7 @@ export default function CampaignsListPage() {
                         <div className="space-y-2 flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-semibold text-base truncate">{c.name}</h3>
-                            <Badge variant={statusInfo.variant} className="gap-1 text-xs">
-                              {statusInfo.icon}
-                              {statusInfo.label}
-                            </Badge>
+                            <CampaignStatusBadge status={c.status} className="text-xs" />
                             <Badge variant="outline" className="text-xs">
                               {c.traffic_source === "serp_google" ? "Google SERP" : "Simulated Referral"}
                             </Badge>

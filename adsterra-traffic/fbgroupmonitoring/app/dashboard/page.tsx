@@ -8,6 +8,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { CampaignStatusBadge } from "@/components/campaign-status-badge"
 import { createClient } from "@/utils/supabase/client"
 import {
   GlobeIcon,
@@ -201,9 +202,7 @@ export default function DashboardPage() {
                         <div className="space-y-1 min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-sm truncate">{c.name}</span>
-                            <Badge variant={c.status === "running" ? "default" : "secondary"} className="text-[10px]">
-                              {c.status}
-                            </Badge>
+                            <CampaignStatusBadge status={c.status} className="text-[10px]" />
                             {c.delivery_mode === "recurring" && (
                               <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20">
                                 🔁 Recurring

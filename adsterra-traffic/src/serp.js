@@ -3,9 +3,10 @@ import { log } from 'apify';
 import { randomBetween, simulateRandomMouseMovements, sleep } from './humanizer.js';
 
 /**
- * Builds a Google search query for the target URL.
- * Uses site:{canonicalUrl} format (preserving https:// and trailing slashes)
- * so Google matches the exact indexed canonical URL.
+ * Builds a natural, index-matched Google search query for the target URL.
+ * Automatically strips http:// and https:// protocol prefixes from site: queries
+ * to match how Google actually indexes domains (e.g. "site:dailydogguide.com/page")
+ * which avoids Google bot-guard triggers and 0-result anomalies.
  */
 export function buildSerpQuery(targetUrl, customQuery = '') {
     if (customQuery && customQuery.trim().length > 0) {
@@ -14,15 +15,13 @@ export function buildSerpQuery(targetUrl, customQuery = '') {
 
     const trimmed = (targetUrl || '').trim();
     if (trimmed.toLowerCase().startsWith('site:')) {
-        return trimmed;
+        // Strip out protocol inside existing site: prefix (e.g. site:https://foo -> site:foo)
+        return trimmed.replace(/^site:https?:\/\//i, 'site:');
     }
 
-    // Preserve exact canonical URL scheme & path so Google's index matches
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-        return `site:${trimmed}`;
-    }
-
-    return `site:https://${trimmed}`;
+    // Strip http:// or https:// from target URL
+    const cleanUrl = trimmed.replace(/^https?:\/\//i, '');
+    return `site:${cleanUrl}`;
 }
 
 /**

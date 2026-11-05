@@ -8,6 +8,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { CampaignStatusBadge } from "@/components/campaign-status-badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { fetchAdminStats, fetchAdminCampaigns } from "./actions"
 import { toast } from "sonner"
@@ -173,9 +174,7 @@ export default function AdminDashboardPage() {
                             {c.users?.email || "Unknown user"}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={c.status === "running" ? "default" : "secondary"} className="capitalize text-xs">
-                              {c.status}
-                            </Badge>
+                            <CampaignStatusBadge status={c.status} className="text-xs" />
                           </TableCell>
                           <TableCell className="text-xs">
                             {c.traffic_source === "serp_google" ? "Google SERP" : "Referral"}

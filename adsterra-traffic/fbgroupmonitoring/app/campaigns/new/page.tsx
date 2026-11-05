@@ -46,6 +46,7 @@ export default function NewCampaignPage() {
   
   // SERP Options
   const [serpQuery, setSerpQuery] = useState("")
+  const [serpFallbackToDirect, setSerpFallbackToDirect] = useState(true)
   const [proxyUrlsText, setProxyUrlsText] = useState("")
 
   // Delivery Curve, Mode & Shape
@@ -118,14 +119,23 @@ export default function NewCampaignPage() {
       return
     }
     const cleanPort = parseInt(proxyPort, 10) || 7777
-    const constructedUrl = `${proxyConnType}://${proxyUser.trim()}:${proxyPass.trim()}@${proxyHost.trim()}:${cleanPort}`
+
+    // Auto-normalize sticky session duration to 1 minute silently (sesstime-1)
+    // Long session times (e.g. sesstime-10, sesstime-30) cause Google to detect repeated searches
+    // from the same IP within a short window and trigger aggressive CAPTCHA blocks.
+    let cleanUser = proxyUser.trim()
+    if (/sesstime-\d+/i.test(cleanUser)) {
+      cleanUser = cleanUser.replace(/sesstime-\d+/gi, "sesstime-1")
+    }
+
+    const constructedUrl = `${proxyConnType}://${cleanUser}:${proxyPass.trim()}@${proxyHost.trim()}:${cleanPort}`
 
     const newProxy: StoredProxy = {
       id: "proxy_" + Date.now(),
       name: proxyName.trim() || `Proxy ${savedProxies.length + 1} (${proxyHost.trim()})`,
       host: proxyHost.trim(),
       port: cleanPort,
-      username: proxyUser.trim(),
+      username: cleanUser,
       password: proxyPass.trim(),
       connectionType: proxyConnType,
       url: constructedUrl
@@ -256,7 +266,7 @@ export default function NewCampaignPage() {
         device_type: deviceType,
         scroll_behavior: scrollBehavior,
         serp_custom_query: serpQuery.trim(),
-        serp_fallback_to_direct: true,
+        serp_fallback_to_direct: serpFallbackToDirect,
         user_proxy_urls: proxyList,
         dwell_time_min_seconds: dwellMin,
         dwell_time_max_seconds: dwellMax,
@@ -823,13 +833,32 @@ export default function NewCampaignPage() {
                       <Label htmlFor="serp-query">Custom Search Query (Optional)</Label>
                       <Input
                         id="serp-query"
-                        placeholder="e.g. site:https://dailydogguide.com/puppy-training-schedule/ (leaves blank for auto-detected query)"
+                        placeholder="e.g. site:dailydogguide.com/page or custom keywords (leaves blank for auto-detected query)"
                         value={serpQuery}
                         onChange={e => setSerpQuery(e.target.value)}
                       />
                       <p className="text-xs text-muted-foreground">
-                        If omitted, the actor generates exact <code>site:https://...</code> targeted searches.
+                        If omitted, the actor automatically queries your target domain cleanly on Google.
                       </p>
+                    </div>
+
+                    {/* Fallback to Direct Referrer Switch */}
+                    <div className="flex items-center justify-between p-3 bg-background/60 border rounded-lg">
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-semibold flex items-center gap-1.5">
+                          <span>Organic Referrer Fallback</span>
+                          <Badge variant="outline" className="text-[9px] h-4 text-emerald-500 border-emerald-500/30">
+                            Recommended
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          If Google triggers a CAPTCHA or your page isn&apos;t ranked in the top 20, automatically visit with a Google referrer header so no paid visits are wasted.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={serpFallbackToDirect}
+                        onCheckedChange={setSerpFallbackToDirect}
+                      />
                     </div>
 
                     {/* Proxy Vault / Selector */}

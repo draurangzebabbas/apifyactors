@@ -344,6 +344,11 @@ async function runTrafficBatchWorker() {
           if (run.status === 'SUCCEEDED') {
             // Read the OUTPUT from key-value store for actual delivered visits
             let completedVisits = batch.visits_target; // fallback
+            let serpPureClicks = 0;
+            let fallbackDirect = 0;
+            let captchaAvoided = 0;
+            let notRankedCount = 0;
+
             try {
               const kvStoreId = run.defaultKeyValueStoreId;
               if (kvStoreId) {
@@ -357,6 +362,33 @@ async function runTrafficBatchWorker() {
                   }
                 }
               }
+
+              // For SERP campaigns, query dataset items to extract pure SERP vs fallback statistics
+              if (batch.traffic_campaigns.traffic_source === 'serp_google' && run.defaultDatasetId) {
+                try {
+                  const datasetRes = await client.dataset(run.defaultDatasetId).listItems({ limit: 100 });
+                  if (datasetRes && Array.isArray(datasetRes.items)) {
+                    for (const it of datasetRes.items) {
+                      if (it.status === 'SUCCESS') {
+                        const pathStr = Array.isArray(it.navigationPath) ? it.navigationPath.join(' ') : '';
+                        if (/Fallback: google_captcha_detected/i.test(pathStr)) {
+                          fallbackDirect++;
+                          captchaAvoided++;
+                        } else if (/Fallback: target_not_found_in_serp/i.test(pathStr)) {
+                          fallbackDirect++;
+                          notRankedCount++;
+                        } else if (/Fallback/i.test(pathStr)) {
+                          fallbackDirect++;
+                        } else {
+                          serpPureClicks++;
+                        }
+                      }
+                    }
+                  }
+                } catch (dErr) {
+                  console.warn(`[Worker] Could not query dataset breakdown for batch #${batch.batch_number}:`, dErr.message);
+                }
+              }
             } catch (kvErr) {
               console.warn(`[Worker] Could not read KV OUTPUT for batch #${batch.batch_number}:`, kvErr.message);
             }
@@ -366,7 +398,15 @@ async function runTrafficBatchWorker() {
               status: 'completed',
               completed_at: new Date().toISOString(),
               visits_completed: completedVisits,
-              run_output: { runId: run.id, exitCode: run.exitCode, stats: run.stats }
+              run_output: {
+                runId: run.id,
+                exitCode: run.exitCode,
+                stats: run.stats,
+                serpPureClicks,
+                fallbackDirect,
+                captchaAvoided,
+                notRankedCount
+              }
             }).eq('id', batch.id);
 
             // Increment campaign visits_completed
@@ -614,7 +654,14 @@ async function runTrafficBatchWorker() {
         // Proxy config: use user-supplied proxies for SERP mode, otherwise Apify residential
         let proxyConfig = null;
         if (trafficSrc === 'serp_google' && Array.isArray(campaign.user_proxy_urls) && campaign.user_proxy_urls.length > 0) {
-          proxyConfig = { useApifyProxy: false, proxyUrls: campaign.user_proxy_urls };
+          // Normalize proxy URLs to 1-minute sessions (sesstime-1) silently to prevent Google CAPTCHA cascades
+          const normalizedProxies = campaign.user_proxy_urls.map(pUrl => {
+            if (typeof pUrl === 'string' && /sesstime-\d+/i.test(pUrl)) {
+              return pUrl.replace(/sesstime-\d+/gi, 'sesstime-1');
+            }
+            return pUrl;
+          });
+          proxyConfig = { useApifyProxy: false, proxyUrls: normalizedProxies };
         } else {
           proxyConfig = { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] };
         }

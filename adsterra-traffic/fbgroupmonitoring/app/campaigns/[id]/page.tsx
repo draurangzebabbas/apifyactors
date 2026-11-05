@@ -9,6 +9,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { CampaignStatusBadge } from "@/components/campaign-status-badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { createClient } from "@/utils/supabase/client"
 import { toast } from "sonner"
@@ -36,6 +37,14 @@ interface Batch {
   started_at: string | null
   completed_at: string | null
   error_message: string | null
+  run_output?: {
+    runId?: string
+    status?: string
+    serpPureClicks?: number
+    fallbackDirect?: number
+    captchaAvoided?: number
+    notRankedCount?: number
+  } | null
 }
 
 interface Campaign {
@@ -183,9 +192,7 @@ export default function CampaignDetailPage() {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-2xl font-bold tracking-tight">{campaign.name}</h1>
-                  <Badge variant={campaign.status === "running" ? "default" : "secondary"}>
-                    {campaign.status}
-                  </Badge>
+                  <CampaignStatusBadge status={campaign.status} className="text-xs" />
                   {campaign.delivery_mode === "recurring" && (
                     <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-primary/20">
                       🔁 Recurring
@@ -366,7 +373,35 @@ export default function CampaignDetailPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>{b.visits_target}</TableCell>
-                      <TableCell className="font-medium">{b.visits_completed || 0}</TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="font-medium">{b.visits_completed || 0}</div>
+                          {campaign.traffic_source === "serp_google" && b.run_output && (
+                            <div className="flex flex-col gap-0.5 text-[10px]">
+                              {(b.run_output.serpPureClicks ?? 0) > 0 && (
+                                <span className="text-emerald-500 font-medium">
+                                  ✓ {b.run_output.serpPureClicks} Organic SERP
+                                </span>
+                              )}
+                              {(b.run_output.fallbackDirect ?? 0) > 0 && (
+                                <span className="text-blue-400">
+                                  ↳ {b.run_output.fallbackDirect} Referrer Fallback
+                                </span>
+                              )}
+                              {(b.run_output.captchaAvoided ?? 0) > 0 && (
+                                <span className="text-amber-500/80">
+                                  ({b.run_output.captchaAvoided} CAPTCHAs avoided)
+                                </span>
+                              )}
+                              {(b.run_output.notRankedCount ?? 0) > 0 && (
+                                <span className="text-muted-foreground">
+                                  ({b.run_output.notRankedCount} not in top 20)
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {new Date(b.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </TableCell>
