@@ -516,7 +516,7 @@ async function runTrafficBatchWorker() {
               const unmetInBatch = batch.visits_target - completedVisits;
 
               if (unmetInBatch > 0 && !isFinished && batch.traffic_campaigns.status === 'running') {
-                // Try to absorb the missed visits into an upcoming pending batch (up to 100 max visits per batch)
+                // Step 1: Try to absorb the missed visits into upcoming pending batches (up to 100 max each)
                 const { data: upcomingBatches } = await supabase
                   .from('traffic_batches')
                   .select('id, batch_number, visits_target')
@@ -524,24 +524,28 @@ async function runTrafficBatchWorker() {
                   .eq('status', 'pending')
                   .order('batch_number', { ascending: true });
 
-                let absorbed = false;
+                let stillUnmet = unmetInBatch;
+
+                // Greedily absorb into pending batches that have room
                 if (upcomingBatches && upcomingBatches.length > 0) {
                   for (const ub of upcomingBatches) {
-                    if ((ub.visits_target || 0) + unmetInBatch <= 100) {
+                    if (stillUnmet <= 0) break;
+                    const room = 100 - (ub.visits_target || 0);
+                    if (room > 0) {
+                      const absorb = Math.min(room, stillUnmet);
                       await supabase
                         .from('traffic_batches')
-                        .update({ visits_target: ub.visits_target + unmetInBatch })
+                        .update({ visits_target: ub.visits_target + absorb })
                         .eq('id', ub.id);
-
-                      console.log(`🔁 [Worker] Batch #${batch.batch_number} missed ${unmetInBatch} visits. Absorbed into upcoming Batch #${ub.batch_number} (new target: ${ub.visits_target + unmetInBatch}).`);
-                      absorbed = true;
-                      break;
+                      console.log(`🔁 [Worker] Absorbed ${absorb} missed visits into Batch #${ub.batch_number} (new target: ${ub.visits_target + absorb}).`);
+                      stillUnmet -= absorb;
                     }
                   }
                 }
 
-                // If no upcoming batch could absorb it (or no pending batches remain), create a catch-up batch
-                if (!absorbed) {
+                // Step 2: If visits still unmet after absorbing into all pending batches,
+                // create as many catch-up batches as needed (each ≤ 100 visits)
+                if (stillUnmet > 0) {
                   const { data: maxBatch } = await supabase
                     .from('traffic_batches')
                     .select('batch_number')
@@ -550,19 +554,26 @@ async function runTrafficBatchWorker() {
                     .limit(1)
                     .single();
 
-                  const nextBatchNum = (maxBatch?.batch_number || batch.batch_number) + 1;
-                  const retryScheduledAt = new Date(Date.now() + 60000).toISOString();
-                  const catchupTarget = Math.min(100, unmetInBatch);
+                  let nextBatchNum = (maxBatch?.batch_number || batch.batch_number) + 1;
+                  let catchupDelay = 60000; // first catch-up in 60s, stagger subsequent ones
+                  const catchupRows = [];
 
-                  await supabase.from('traffic_batches').insert({
-                    campaign_id: batch.campaign_id,
-                    batch_number: nextBatchNum,
-                    status: 'pending',
-                    visits_target: catchupTarget,
-                    scheduled_at: retryScheduledAt
-                  });
+                  while (stillUnmet > 0) {
+                    const bSize = Math.min(100, stillUnmet);
+                    catchupRows.push({
+                      campaign_id: batch.campaign_id,
+                      batch_number: nextBatchNum,
+                      status: 'pending',
+                      visits_target: bSize,
+                      scheduled_at: new Date(Date.now() + catchupDelay).toISOString()
+                    });
+                    stillUnmet -= bSize;
+                    nextBatchNum++;
+                    catchupDelay += 30000; // stagger each extra catch-up batch by 30s
+                  }
 
-                  console.log(`🔁 [Worker] Batch #${batch.batch_number} missed ${unmetInBatch} visits. Created catch-up Batch #${nextBatchNum} (${catchupTarget} visits).`);
+                  await supabase.from('traffic_batches').insert(catchupRows);
+                  console.log(`🔁 [Worker] Created ${catchupRows.length} catch-up batch(es) for Batch #${batch.batch_number}'s ${unmetInBatch} missed visits.`);
                 }
               }
             }
@@ -793,7 +804,6 @@ async function runTrafficBatchWorker() {
             maxInternalPages: campaign.max_internal_pages || 2,
             // SERP settings
             serpCustomQuery: campaign.serp_custom_query || '',
-            serpMaxRetries: campaign.serp_max_retries || 3,
             serpMaxRetries: 1,
             serpFallbackToDirect: campaign.serp_fallback_to_direct ?? false,
             // Proxy
