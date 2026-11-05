@@ -660,7 +660,11 @@ async function runTrafficBatchWorker() {
           serpMaxRetries: campaign.serp_max_retries || 3,
           serpFallbackToDirect: campaign.serp_fallback_to_direct ?? false,
           // Proxy
-          proxyConfiguration: proxyConfig
+          proxyConfiguration: proxyConfig,
+          // Diagnostics & Logging (disabled for production speed and resource conservation)
+          captureScreenshots: false,
+          captureConsoleErrors: false,
+          captureNetworkFailures: false
         };
 
         try {
