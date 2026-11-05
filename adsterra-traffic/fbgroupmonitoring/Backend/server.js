@@ -1495,8 +1495,8 @@ cron.schedule('*/10 * * * * *', () => {
 
       res.json({
         success: true,
-        refundedCredits: refundVisits,
-        message: `Campaign cancelled. ${refundVisits} unused credits refunded to your balance.`
+        refundedCredits: refundCredits,
+        message: `Campaign cancelled. ${refundCredits} unused credits refunded to your balance.`
       });
     } catch (err) {
       console.error('[POST /api/campaigns/:id/cancel]', err.message);
