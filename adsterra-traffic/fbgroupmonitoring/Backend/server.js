@@ -487,13 +487,84 @@ async function runTrafficBatchWorker() {
             await keyManager.markSuccess(batch.apify_key_id);
 
           } else if (['FAILED', 'TIMED-OUT', 'ABORTED'].includes(run.status)) {
-            console.warn(`❌ [Worker] Batch #${batch.batch_number} (run ${batch.apify_run_id} via ${keyObj.key_name || keyObj.id}) failed with status ${run.status}`);
+            console.warn(`❌ [Worker] Batch #${batch.batch_number} (run ${batch.apify_run_id} via ${keyObj.key_name || keyObj.id}) finished with status: ${run.status}`);
+
+            // Even if the run timed out or aborted, recover all visits delivered before the cutoff
+            let partialDelivered = 0;
+            try {
+              if (run.defaultDatasetId) {
+                const datasetInfo = await client.dataset(run.defaultDatasetId).get();
+                if (datasetInfo && typeof datasetInfo.itemCount === 'number') {
+                  partialDelivered = datasetInfo.itemCount;
+                }
+              }
+            } catch (pErr) {
+              console.warn(`[Worker] Could not query dataset itemCount for run ${batch.apify_run_id}:`, pErr.message);
+            }
+
+            // Fallback: check KV store if dataset had 0
+            if (partialDelivered === 0 && run.defaultKeyValueStoreId) {
+              try {
+                const kvRes = await fetch(
+                  `https://api.apify.com/v2/key-value-stores/${run.defaultKeyValueStoreId}/records/OUTPUT?token=${keyObj.key_value}`
+                );
+                if (kvRes.ok) {
+                  const kvOutput = await kvRes.json();
+                  if (typeof kvOutput.successfulVisitsDelivered === 'number') {
+                    partialDelivered = kvOutput.successfulVisitsDelivered;
+                  }
+                }
+              } catch (_) {}
+            }
+
+            console.log(`[Worker] Batch #${batch.batch_number} recovered ${partialDelivered}/${batch.visits_target} visits delivered before ${run.status}.`);
+
+            // Mark batch with its actual delivered visits
             await supabase.from('traffic_batches').update({
-              status: 'failed',
+              status: partialDelivered >= batch.visits_target ? 'completed' : 'failed',
               completed_at: new Date().toISOString(),
-              error_message: run.statusMessage || `Actor run finished with ${run.status}`,
-              run_output: { runId: run.id, status: run.status }
+              visits_completed: partialDelivered,
+              error_message: run.statusMessage || `Actor run finished with ${run.status} (${partialDelivered}/${batch.visits_target} delivered)`,
+              run_output: { runId: run.id, status: run.status, visitsDelivered: partialDelivered }
             }).eq('id', batch.id);
+
+            // Credit the delivered visits to the campaign progress bar
+            if (partialDelivered > 0) {
+              const currentTotal = batch.traffic_campaigns.visits_completed || 0;
+              const newTotal = currentTotal + partialDelivered;
+              const isFinished = newTotal >= batch.traffic_campaigns.total_visits;
+
+              await supabase.from('traffic_campaigns').update({
+                visits_completed: newTotal,
+                ...(isFinished ? { status: 'completed', completed_at: new Date().toISOString() } : {})
+              }).eq('id', batch.campaign_id);
+            }
+
+            // Reschedule remaining missing visits so the campaign completes in full!
+            const remainingNeeded = batch.visits_target - partialDelivered;
+            if (remainingNeeded > 0) {
+              // Find highest batch number to append cleanly
+              const { data: maxBatch } = await supabase
+                .from('traffic_batches')
+                .select('batch_number')
+                .eq('campaign_id', batch.campaign_id)
+                .order('batch_number', { ascending: false })
+                .limit(1)
+                .single();
+
+              const nextBatchNum = (maxBatch?.batch_number || batch.batch_number) + 1;
+              const retryScheduledAt = new Date(Date.now() + 60000).toISOString(); // Retry in 1 minute
+
+              await supabase.from('traffic_batches').insert({
+                campaign_id: batch.campaign_id,
+                batch_number: nextBatchNum,
+                status: 'pending',
+                visits_target: remainingNeeded,
+                scheduled_at: retryScheduledAt
+              });
+
+              console.log(`🔁 [Worker] Auto-rescheduled remaining ${remainingNeeded} visits for campaign "${batch.traffic_campaigns.name}" as Batch #${nextBatchNum} at ${retryScheduledAt}`);
+            }
 
             await keyManager.markFailure(batch.apify_key_id, 500, run.statusMessage || run.status);
           }
