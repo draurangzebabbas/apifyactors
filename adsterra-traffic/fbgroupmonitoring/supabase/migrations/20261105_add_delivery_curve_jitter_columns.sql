@@ -13,3 +13,4 @@ ALTER TABLE traffic_batches
 
 -- Reload PostgREST schema cache so new columns are immediately visible via API
 NOTIFY pgrst, 'reload schema';
+
