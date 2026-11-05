@@ -512,12 +512,36 @@ async function runTrafficBatchWorker() {
                 ...(isFinished ? { status: 'completed', completed_at: new Date().toISOString() } : {})
               }).eq('id', batch.campaign_id);
 
-              // If campaign still needs visits to satisfy 100% of the target, auto-reschedule!
-              if (!isFinished && batch.traffic_campaigns.status === 'running') {
-                const unmetInBatch = batch.visits_target - completedVisits;
-                const rescheduleCount = Math.min(unmetInBatch > 0 ? unmetInBatch : remainingForCampaign, remainingForCampaign);
+              // If the completed batch had any missed/unmet visits, reallocate them!
+              const unmetInBatch = batch.visits_target - completedVisits;
 
-                if (rescheduleCount > 0) {
+              if (unmetInBatch > 0 && !isFinished && batch.traffic_campaigns.status === 'running') {
+                // Try to absorb the missed visits into an upcoming pending batch (up to 100 max visits per batch)
+                const { data: upcomingBatches } = await supabase
+                  .from('traffic_batches')
+                  .select('id, batch_number, visits_target')
+                  .eq('campaign_id', batch.campaign_id)
+                  .eq('status', 'pending')
+                  .order('batch_number', { ascending: true });
+
+                let absorbed = false;
+                if (upcomingBatches && upcomingBatches.length > 0) {
+                  for (const ub of upcomingBatches) {
+                    if ((ub.visits_target || 0) + unmetInBatch <= 100) {
+                      await supabase
+                        .from('traffic_batches')
+                        .update({ visits_target: ub.visits_target + unmetInBatch })
+                        .eq('id', ub.id);
+
+                      console.log(`🔁 [Worker] Batch #${batch.batch_number} missed ${unmetInBatch} visits. Absorbed into upcoming Batch #${ub.batch_number} (new target: ${ub.visits_target + unmetInBatch}).`);
+                      absorbed = true;
+                      break;
+                    }
+                  }
+                }
+
+                // If no upcoming batch could absorb it (or no pending batches remain), create a catch-up batch
+                if (!absorbed) {
                   const { data: maxBatch } = await supabase
                     .from('traffic_batches')
                     .select('batch_number')
@@ -527,17 +551,18 @@ async function runTrafficBatchWorker() {
                     .single();
 
                   const nextBatchNum = (maxBatch?.batch_number || batch.batch_number) + 1;
-                  const retryScheduledAt = new Date(Date.now() + 15000).toISOString(); // 15s retry
+                  const retryScheduledAt = new Date(Date.now() + 60000).toISOString();
+                  const catchupTarget = Math.min(100, unmetInBatch);
 
                   await supabase.from('traffic_batches').insert({
                     campaign_id: batch.campaign_id,
                     batch_number: nextBatchNum,
                     status: 'pending',
-                    visits_target: rescheduleCount,
+                    visits_target: catchupTarget,
                     scheduled_at: retryScheduledAt
                   });
 
-                  console.log(`🔁 [Worker] Batch #${batch.batch_number} delivered ${completedVisits}/${batch.visits_target}. Auto-rescheduled ${rescheduleCount} remaining visits into Batch #${nextBatchNum} for campaign "${batch.traffic_campaigns.name}" to ensure 100% target fulfillment.`);
+                  console.log(`🔁 [Worker] Batch #${batch.batch_number} missed ${unmetInBatch} visits. Created catch-up Batch #${nextBatchNum} (${catchupTarget} visits).`);
                 }
               }
             }
