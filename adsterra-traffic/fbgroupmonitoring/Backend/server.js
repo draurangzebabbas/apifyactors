@@ -1172,7 +1172,39 @@ app.post('/api/campaigns/:id/cancel', requireAuth, async (req, res) => {
       return res.status(400).json({ error: `Campaign is already ${campaign.status}` });
     }
 
-    // Find all pending batches to refund
+    // 1. Abort any currently running Apify Actor run for this campaign
+    const { data: runningBatches } = await supabase
+      .from('traffic_batches')
+      .select('id, apify_run_id, apify_key_id')
+      .eq('campaign_id', id)
+      .eq('status', 'running')
+      .not('apify_run_id', 'is', null);
+
+    if (runningBatches && runningBatches.length > 0) {
+      for (const rb of runningBatches) {
+        try {
+          const keyObj = keyManager.keys.find(k => k.id === rb.apify_key_id);
+          if (keyObj) {
+            const client = new ApifyClient({ token: keyObj.key_value });
+            await client.run(rb.apify_run_id).abort();
+            console.log(`[Cancel] Aborted in-flight Apify run ${rb.apify_run_id} for batch #${rb.id}`);
+          }
+        } catch (abortErr) {
+          console.warn(`[Cancel] Could not abort Apify run ${rb.apify_run_id}:`, abortErr.message);
+        }
+
+        await supabase
+          .from('traffic_batches')
+          .update({
+            status: 'failed',
+            completed_at: new Date().toISOString(),
+            error_message: 'Cancelled by user'
+          })
+          .eq('id', rb.id);
+      }
+    }
+
+    // 2. Find all pending batches to refund
     const { data: pendingBatches } = await supabase
       .from('traffic_batches')
       .select('id, visits_target')
@@ -1181,7 +1213,7 @@ app.post('/api/campaigns/:id/cancel', requireAuth, async (req, res) => {
 
     const refundVisits = (pendingBatches || []).reduce((sum, b) => sum + (b.visits_target || 0), 0);
 
-    // Mark pending batches skipped
+    // 3. Mark pending batches skipped so worker never executes them
     if (pendingBatches && pendingBatches.length > 0) {
       await supabase
         .from('traffic_batches')
