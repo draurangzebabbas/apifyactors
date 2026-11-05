@@ -357,20 +357,7 @@ export default function CampaignDetailPage() {
                     <TableRow key={b.id}>
                       <TableCell className="font-semibold">Batch #{b.batch_number}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant={
-                            b.status === "completed"
-                              ? "secondary"
-                              : b.status === "running"
-                              ? "default"
-                              : b.status === "failed"
-                              ? "destructive"
-                              : "outline"
-                          }
-                          className="capitalize"
-                        >
-                          {b.status}
-                        </Badge>
+                        <CampaignStatusBadge status={b.status} className="text-xs" showIcon={false} />
                       </TableCell>
                       <TableCell>{b.visits_target}</TableCell>
                       <TableCell>

@@ -24,7 +24,8 @@ export function CampaignStatusBadge({ status, className = "", showIcon = true }:
     case "running":
       return (
         <Badge
-          className={`bg-blue-600 hover:bg-blue-500 text-white border-blue-500/40 gap-1 font-medium ${className}`}
+          variant="outline"
+          className={`bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border-blue-500/30 gap-1 font-medium transition-colors ${className}`}
         >
           {showIcon && <PlayIcon className="h-3 w-3 fill-current" />}
           <span>Running</span>
@@ -34,7 +35,8 @@ export function CampaignStatusBadge({ status, className = "", showIcon = true }:
     case "completed":
       return (
         <Badge
-          className={`bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500/40 gap-1 font-medium ${className}`}
+          variant="outline"
+          className={`bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border-emerald-500/30 gap-1 font-medium transition-colors ${className}`}
         >
           {showIcon && <CheckCircleIcon className="h-3 w-3 fill-current" />}
           <span>Completed</span>
@@ -44,7 +46,8 @@ export function CampaignStatusBadge({ status, className = "", showIcon = true }:
     case "paused":
       return (
         <Badge
-          className={`bg-amber-500 hover:bg-amber-400 text-black border-amber-400/50 gap-1 font-semibold ${className}`}
+          variant="outline"
+          className={`bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border-amber-500/30 gap-1 font-medium transition-colors ${className}`}
         >
           {showIcon && <PauseIcon className="h-3 w-3 fill-current" />}
           <span>Paused</span>
@@ -54,7 +57,8 @@ export function CampaignStatusBadge({ status, className = "", showIcon = true }:
     case "cancelled":
       return (
         <Badge
-          className={`bg-rose-600 hover:bg-rose-500 text-white border-rose-500/40 gap-1 font-medium ${className}`}
+          variant="outline"
+          className={`bg-red-500/15 hover:bg-red-500/25 text-red-400 border-red-500/30 gap-1 font-medium transition-colors ${className}`}
         >
           {showIcon && <XCircleIcon className="h-3 w-3 fill-current" />}
           <span>Cancelled</span>
@@ -64,7 +68,8 @@ export function CampaignStatusBadge({ status, className = "", showIcon = true }:
     case "failed":
       return (
         <Badge
-          className={`bg-rose-700 hover:bg-rose-600 text-white border-rose-600/40 gap-1 font-medium ${className}`}
+          variant="outline"
+          className={`bg-red-500/15 hover:bg-red-500/25 text-red-400 border-red-500/30 gap-1 font-medium transition-colors ${className}`}
         >
           {showIcon && <WarningCircleIcon className="h-3 w-3 fill-current" />}
           <span>Failed</span>
@@ -76,7 +81,7 @@ export function CampaignStatusBadge({ status, className = "", showIcon = true }:
       return (
         <Badge
           variant="outline"
-          className={`text-muted-foreground border-border gap-1 font-medium ${className}`}
+          className={`bg-muted/40 hover:bg-muted/60 text-muted-foreground border-border gap-1 font-medium transition-colors ${className}`}
         >
           {showIcon && <ClockIcon className="h-3 w-3" />}
           <span className="capitalize">{status || "Pending"}</span>
