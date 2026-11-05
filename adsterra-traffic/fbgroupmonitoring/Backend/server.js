@@ -425,7 +425,7 @@ async function runTrafficBatchWorker() {
                   for (let b = 0; b < renewBatches; b++) {
                     const isLast = (b === renewBatches - 1);
                     let bSize = isLast ? (renewalVisits - alloc) : Math.floor(renewalVisits / renewBatches);
-                    
+
                     // Apply subtle jitter on recurring batches if enabled
                     if (camp.humanize_jitter && !isLast && bSize > 10) {
                       const jitterPercent = (Math.random() * 0.20) - 0.10; // ±10%
@@ -842,7 +842,7 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
         break;
       }
       const progress = i / (numBatches - 1); // 0.0 to 1.0 (macro trajectory)
-      
+
       // Macro growth component
       let macroWeight = 1.0;
       if (traffic_curve === 'ramp_up') {
@@ -1412,7 +1412,7 @@ app.post('/api/webhooks/polar', async (req, res) => {
       if (targetUserId) {
         // Polar amounts are in cents (e.g. $100.00 = 10000 cents)
         const amountUsd = (data?.amount || data?.total_amount || 0) / 100;
-        
+
         // 1 Unit ($1) = 1,000 Traffic Visits / Credits
         const unitsPurchased = data?.units || data?.items?.[0]?.units;
         const creditsAwarded = unitsPurchased

@@ -69,6 +69,8 @@ export default function NewCampaignPage() {
   }
   const [savedProxies, setSavedProxies] = useState<StoredProxy[]>([])
   const [selectedProxyIds, setSelectedProxyIds] = useState<string[]>([])
+  const [showBulkAdd, setShowBulkAdd] = useState(false)
+  const [bulkText, setBulkText] = useState("")
   const [showAddProxy, setShowAddProxy] = useState(false)
   const [proxyName, setProxyName] = useState("")
   const [proxyHost, setProxyHost] = useState("")
@@ -345,9 +347,14 @@ export default function NewCampaignPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label>Target URLs ({urls.length})</Label>
-                    <Button type="button" variant="ghost" size="sm" onClick={addUrlRow} className="text-xs h-7 gap-1">
-                      <PlusIcon className="w-3.5 h-3.5" /> Add Another URL
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setShowBulkAdd(v => !v)} className="text-xs h-7 gap-1">
+                        <PlusIcon className="w-3.5 h-3.5" /> Add Bulk
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={addUrlRow} className="text-xs h-7 gap-1">
+                        <PlusIcon className="w-3.5 h-3.5" /> Add Another URL
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     {urls.map((u, idx) => (
@@ -372,6 +379,48 @@ export default function NewCampaignPage() {
                       </div>
                     ))}
                   </div>
+                  {showBulkAdd && (
+                    <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
+                      <Label className="text-xs font-medium">Paste URLs — one per line</Label>
+                      <Textarea
+                        placeholder={"https://example.com/page1\nhttps://example.com/page2\nhttps://example.com/page3"}
+                        rows={5}
+                        value={bulkText}
+                        onChange={e => setBulkText(e.target.value)}
+                        className="font-mono text-xs"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setShowBulkAdd(false); setBulkText("") }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            const parsed = bulkText
+                              .split('\n')
+                              .map(u => u.trim())
+                              .filter(u => /^https?:\/\//i.test(u))
+                            if (parsed.length > 0) {
+                              setUrls(prev => [...prev.filter(u => u !== "https://"), ...parsed])
+                              toast.success(`Added ${parsed.length} URL${parsed.length !== 1 ? "s" : ""}`)
+                            } else {
+                              toast.error("No valid URLs found. Each line must start with http:// or https://")
+                            }
+                            setShowBulkAdd(false)
+                            setBulkText("")
+                          }}
+                        >
+                          Add {bulkText.split('\n').filter(u => /^https?:\/\//i.test(u.trim())).length || ""} URLs
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Visits will be distributed round-robin evenly across all provided target URLs.
                   </p>
@@ -546,7 +595,7 @@ export default function NewCampaignPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="min-w-[var(--radix-select-trigger-width)] w-full">
                         <SelectItem value="one_time">One-Time Package (Deliver &amp; Finish)</SelectItem>
                         <SelectItem value="recurring">Continuous / Recurring (Auto-renews until stopped)</SelectItem>
                       </SelectContent>
@@ -564,7 +613,7 @@ export default function NewCampaignPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="min-w-[var(--radix-select-trigger-width)] w-full">
                         <SelectItem value="steady">Steady &amp; Uniform (Flat pace across cycle)</SelectItem>
                         <SelectItem value="ramp_up">Gradual Ramp-Up (Starts at 40%, reaches 160% peak)</SelectItem>
                       </SelectContent>
@@ -582,7 +631,7 @@ export default function NewCampaignPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="min-w-[var(--radix-select-trigger-width)] w-full">
                         <SelectItem value="uniform_24h">24/7 Uniform (Constant spread throughout)</SelectItem>
                         <SelectItem value="business_hours">Business Hours Peak (9 AM - 6 PM high, night quiet)</SelectItem>
                         <SelectItem value="evening_peak">Evening Peak (6 PM - 11 PM high, leisure browsing)</SelectItem>
@@ -604,7 +653,7 @@ export default function NewCampaignPage() {
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="min-w-[var(--radix-select-trigger-width)] w-full">
                           <SelectItem value="America/New_York">US Eastern Time (New York / EDT)</SelectItem>
                           <SelectItem value="America/Chicago">US Central Time (Chicago / CDT)</SelectItem>
                           <SelectItem value="America/Los_Angeles">US Pacific Time (Los Angeles / PDT)</SelectItem>
@@ -732,7 +781,7 @@ export default function NewCampaignPage() {
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="min-w-[var(--radix-select-trigger-width)] w-full">
                       <SelectItem value="referrer">
                         Simulated Referral (Search Engines &amp; Social Referrers)
                       </SelectItem>
@@ -756,7 +805,7 @@ export default function NewCampaignPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="min-w-[var(--radix-select-trigger-width)] w-full">
                         <SelectItem value="preset_search">
                           Search Engines (Google, Bing, Yahoo, DuckDuckGo)
                         </SelectItem>
@@ -986,7 +1035,7 @@ export default function NewCampaignPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="min-w-[var(--radix-select-trigger-width)] w-full">
                         <SelectItem value="random">Random Mix (Desktop &amp; Mobile)</SelectItem>
                         <SelectItem value="desktop-random">Random Desktop (Chrome, Firefox, Safari, Edge)</SelectItem>
                         <SelectItem value="mobile-random">Random Mobile (Android &amp; iOS)</SelectItem>
@@ -1004,7 +1053,7 @@ export default function NewCampaignPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="min-w-[var(--radix-select-trigger-width)] w-full">
                         <SelectItem value="human-random">Human-Random (Natural scroll &amp; pauses)</SelectItem>
                         <SelectItem value="slow-linear">Slow Linear Scroll</SelectItem>
                         <SelectItem value="none">No Scrolling (Idle)</SelectItem>
