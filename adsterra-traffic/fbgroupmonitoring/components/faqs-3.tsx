@@ -1,16 +1,16 @@
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { Users, CreditCard, Shield, Zap, Key, BarChart2 } from 'lucide-react'
+import { Globe, Search, ShieldCheck, Zap, Coins, Sliders } from 'lucide-react'
 import Link from 'next/link'
 
 const iconMap: Record<string, React.ElementType> = {
-    users: Users,
-    'credit-card': CreditCard,
-    shield: Shield,
+    globe: Globe,
+    search: Search,
+    shield: ShieldCheck,
     zap: Zap,
-    key: Key,
-    'bar-chart': BarChart2,
+    coins: Coins,
+    sliders: Sliders,
 }
 
 type FAQItem = {
@@ -24,39 +24,39 @@ export default function FAQsThree() {
     const faqItems: FAQItem[] = [
         {
             id: 'item-1',
-            icon: 'users',
-            question: 'Which Facebook groups can I track?',
-            answer: 'You can track any Facebook group you are already a member of — public or private. By using your own Facebook session, FBMonitor accesses data exactly as you would when browsing manually. No admin privileges required.',
+            icon: 'globe',
+            question: 'How does TrafficFlow generate and deliver visits?',
+            answer: 'TrafficFlow uses automated headless Chromium browsers running on high-reputation rotating residential proxy networks. Each session behaves identically to a genuine human visitor: loading all scripts and stylesheets, scrolling with natural human jitter, pausing for realistic dwell time, and clicking internal links.',
         },
         {
             id: 'item-2',
-            icon: 'zap',
-            question: 'How fast will I be notified of new posts?',
-            answer: 'On the Basic plan, group activity is synced hourly. On Pro and Scale plans, syncing happens every 5 minutes so you can be the first to jump into important conversations and generate leads.',
+            icon: 'search',
+            question: 'How do Google SERP organic clicks work?',
+            answer: 'In Google SERP mode, the browser opens Google Search, executes your target keyword or site query, scans the top 20 organic search results for your domain, and clicks through directly to your landing page. If an URL cannot be found in the top 20, TrafficFlow automatically detects it and prunes it from future batches.',
         },
         {
             id: 'item-3',
-            icon: 'bar-chart',
-            question: 'What does the Activity Heatmap show me?',
-            answer: 'The Activity Heatmap visualizes exactly when your target communities are most active. Know the best days and hours to post your own content for maximum engagement.',
+            icon: 'shield',
+            question: 'Will visits register accurately in Google Analytics (GA4)?',
+            answer: 'Yes! Because our sessions run inside real desktop and mobile Chromium browsers (not simple curl or socket requests), Google Analytics 4 (GA4), Google Search Console, server logs, and ad network trackers register all page views, session durations, and user locations.',
         },
         {
             id: 'item-4',
-            icon: 'key',
-            question: 'How do keyword alerts work?',
-            answer: 'Set up advanced rules to filter the noise. Use "Must Include", "Any Of", and "Must Exclude" logic so your dashboard only shows posts with high intent (like people asking for recommendations or support).',
+            icon: 'coins',
+            question: 'How are credits calculated and used?',
+            answer: '1 credit equals 1 standard website visit (direct, referral, or backlink). Google SERP visits consume 2 credits due to the extra compute required for live search interaction and ranked result detection. Credits never expire and can be used across multiple campaigns.',
         },
         {
             id: 'item-5',
-            icon: 'shield',
-            question: 'Is my Facebook session stored securely?',
-            answer: 'Security is our priority. Your session credentials are encrypted with AES-256 at rest, never logged, and only decrypted in memory during the split-second we sync your groups.',
+            icon: 'sliders',
+            question: 'Can I schedule traffic across specific hours or curves?',
+            answer: 'Yes. You can distribute traffic evenly over 24 hours, follow local business hours, or run recurring cycles with randomized human jitter to mimic real-world audience traffic spikes and lulls.',
         },
         {
             id: 'item-6',
-            icon: 'credit-card',
-            question: 'Can I cancel my subscription anytime?',
-            answer: 'Yes, you can cancel anytime directly from your billing portal. Your plan stays active until the end of your current billing period. No hidden fees or questions asked.',
+            icon: 'zap',
+            question: 'What happens if a batch fails or is cancelled?',
+            answer: 'TrafficFlow provides a 100% target fulfillment guarantee. Any unmet visits from interrupted batches are automatically reallocated into upcoming batches. If you cancel a running campaign, credits for all unexecuted pending batches are instantly refunded to your balance.',
         },
     ]
 
@@ -66,14 +66,14 @@ export default function FAQsThree() {
                 <div className="flex flex-col gap-10 md:flex-row md:gap-16">
                     <div className="md:w-1/3">
                         <div className="sticky top-20">
-                            <span className="text-primary text-sm font-semibold uppercase tracking-widest">FAQ</span>
-                            <h2 className="mt-4 text-3xl font-bold">Frequently Asked Questions</h2>
-                            <p className="text-muted-foreground mt-4">
-                                Can't find the answer you need?{' '}
+                            <span className="text-primary text-xs font-semibold uppercase tracking-widest">FAQ</span>
+                            <h2 className="mt-4 text-3xl font-bold tracking-tight">Frequently Asked Questions</h2>
+                            <p className="text-muted-foreground mt-4 text-sm leading-relaxed">
+                                Have questions about our residential proxies, Google SERP mode, or billing?{' '}
                                 <Link
-                                    href="mailto:contact@draurangzebabbas.com"
+                                    href="mailto:support@trafficflow.io"
                                     className="text-primary font-medium hover:underline">
-                                    Contact us directly
+                                    Contact our team
                                 </Link>
                             </p>
                         </div>
@@ -85,22 +85,20 @@ export default function FAQsThree() {
                                 <AccordionItem
                                     key={item.id}
                                     value={item.id}
-                                    className="bg-background shadow-xs rounded-lg border px-4 last:border-b">
+                                    className="bg-card shadow-xs rounded-lg border px-4 last:border-b">
                                     <AccordionTrigger className="cursor-pointer items-center py-5 hover:no-underline">
                                         <div className="flex items-center gap-3">
-                                            <div className="flex size-6 shrink-0">
+                                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                                                 {(() => {
                                                     const Icon = iconMap[item.icon]
                                                     return Icon ? <Icon className="m-auto size-4" /> : null
                                                 })()}
                                             </div>
-                                            <span className="text-base text-left">{item.question}</span>
+                                            <span className="text-base text-left font-medium">{item.question}</span>
                                         </div>
                                     </AccordionTrigger>
-                                    <AccordionContent className="pb-5">
-                                        <div className="px-9">
-                                            <p className="text-base text-muted-foreground">{item.answer}</p>
-                                        </div>
+                                    <AccordionContent className="pb-5 text-sm text-muted-foreground leading-relaxed pl-10">
+                                        {item.answer}
                                     </AccordionContent>
                                 </AccordionItem>
                             ))}

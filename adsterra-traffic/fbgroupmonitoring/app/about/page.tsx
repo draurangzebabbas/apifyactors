@@ -3,8 +3,8 @@ import { LogoIcon } from '@/components/logo'
 import Footer from '@/components/footer'
 
 export const metadata = {
-  title: 'About — FBMonitor',
-  description: 'Learn about FBMonitor, a community analytics platform that helps you stay informed about activity in Facebook groups you already belong to.',
+  title: 'About — TrafficFlow',
+  description: 'Learn about TrafficFlow, the automated headless browser platform for authentic website traffic, Google SERP organic clicks, and referral generation.',
 }
 
 export default function AboutPage() {
@@ -13,8 +13,8 @@ export default function AboutPage() {
       <header className="border-b">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-center gap-2.5">
-            <LogoIcon className="size-6" />
-            <span className="font-bold tracking-tight">FBMonitor</span>
+            <LogoIcon className="size-7" />
+            <span className="font-bold tracking-tight text-lg">TrafficFlow</span>
           </Link>
           <Link href="/" className="text-muted-foreground hover:text-foreground text-sm transition-colors">
             ← Back to Home
@@ -24,74 +24,53 @@ export default function AboutPage() {
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-20">
         <div className="mb-12">
-          <span className="text-primary text-sm font-semibold uppercase tracking-widest">About</span>
-          <h1 className="mt-3 text-4xl font-bold tracking-tight">Automated intelligence for Facebook communities</h1>
+          <span className="text-primary text-xs font-semibold uppercase tracking-widest">About</span>
+          <h1 className="mt-3 text-4xl font-bold tracking-tight">Authentic Website Traffic & SERP Automation</h1>
           <p className="text-muted-foreground mt-4 text-lg leading-relaxed">
-            FBMonitor was built to solve a real problem — keeping up with high-volume Facebook communities manually is exhausting and inefficient. We built an analytics platform that filters the noise automatically, so you never miss a conversation or lead that matters to you.
+            TrafficFlow was built to deliver genuine, high-fidelity website engagement that registers accurately in analytics platforms and helps publishers, digital marketers, and SEO agencies test, optimize, and rank at scale.
           </p>
         </div>
 
         <div className="space-y-10 text-[15px] leading-relaxed">
           <section>
-            <h2 className="mb-3 text-xl font-semibold">What is FBMonitor?</h2>
+            <h2 className="mb-3 text-xl font-semibold">What is TrafficFlow?</h2>
             <p className="text-muted-foreground">
-              FBMonitor is an intelligence platform that surfaces high-value insights from Facebook groups you are already a member of. Using your own authorized Facebook account credentials, FBMonitor accesses groups on your behalf and organizes the activity into a structured dashboard with keyword filtering, trend heatmaps, and post alerts.
+              TrafficFlow is a cloud-based traffic automation platform powered by real headless Chromium browsers running on global residential proxy networks. Unlike low-quality scrapers or curl scripts that bounce immediately, our sessions execute complete JavaScript applications, simulate realistic mouse movements, scroll down pages naturally, and interact with internal navigation.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">Authorized access only</h2>
+            <h2 className="mb-3 text-xl font-semibold">Engineered for Accuracy & Safety</h2>
             <p className="text-muted-foreground">
-              FBMonitor never accesses groups without the user's own credentials. Users authenticate using their own encrypted Facebook session, meaning all data access is performed securely through the user's personal authorized account. This is functionally equivalent to you reading posts in a group you belong to — FBMonitor simply automates the scrolling so you can focus on engaging.
+              Every traffic batch is designed to mimic authentic human behavior. You can customize dwell times from 15 to 120 seconds, configure device types across Desktop Chrome and Mobile iOS/Android, and distribute visits across customizable day/night curves with randomized human jitter to prevent artificial traffic spikes.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">Who is it for?</h2>
+            <h2 className="mb-3 text-xl font-semibold">Google SERP Click Simulation</h2>
             <p className="text-muted-foreground">
-              FBMonitor is built for community managers, researchers, marketers, and founders who want smarter, automated visibility into community conversations — without spending hours manually scrolling the feed every day. Stop missing leads and start growing.
+              Our specialized Google SERP mode automates live Google searches for your keywords, locates your domain in the top 20 organic search results, and clicks through naturally. This helps search engines register authentic organic search volume and click-through interest for your target pages.
             </p>
           </section>
 
           <section>
             <h2 className="mb-3 text-xl font-semibold">How it works</h2>
             <ol className="text-muted-foreground list-decimal space-y-2 pl-5">
-              <li>Subscribe to a plan and create your account.</li>
-              <li>Add the URLs of Facebook groups you are already a member of.</li>
-              <li>Securely connect your own Facebook session credentials for authorized access.</li>
-              <li>Define keyword rules to filter posts (e.g., "looking for recommendations").</li>
-              <li>Your personal dashboard updates automatically with matching posts and trends.</li>
+              <li>Create your free TrafficFlow account.</li>
+              <li>Top up credits using our flexible pay-as-you-go pricing ($1 = 1,000 visits).</li>
+              <li>Configure your target URLs, traffic channel (SERP, Referral, or Direct), and dwell settings.</li>
+              <li>Launch your campaign and watch real-time batch execution with full diagnostics in your dashboard.</li>
             </ol>
           </section>
+        </div>
 
-          <section>
-            <h2 className="mb-3 text-xl font-semibold">The creator</h2>
-            <p className="text-muted-foreground">
-              FBMonitor was designed and built by{' '}
-              <Link href="https://draurangzebabbas.com" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">
-                Aurangzeb Abbas
-              </Link>
-              , a full-stack developer and digital entrepreneur based in Pakistan. Follow along on{' '}
-              <Link href="https://x.com/draurangzebabas" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">
-                X (Twitter)
-              </Link>{' '}
-              or{' '}
-              <Link href="https://www.linkedin.com/in/draurangzeb/" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">
-                LinkedIn
-              </Link>
-              .
-            </p>
-          </section>
-
-          <section>
-            <h2 className="mb-3 text-xl font-semibold">Contact</h2>
-            <p className="text-muted-foreground">
-              For questions, partnership inquiries, or support, reach out at{' '}
-              <Link href="mailto:contact@draurangzebabbas.com" className="text-primary font-medium hover:underline">
-                contact@draurangzebabbas.com
-              </Link>
-            </p>
-          </section>
+        <div className="mt-14 pt-8 border-t flex items-center justify-between">
+          <Link href="/dashboard" className="text-primary font-medium hover:underline text-sm">
+            Launch your first campaign →
+          </Link>
+          <Link href="/#pricing" className="text-muted-foreground hover:text-foreground text-sm">
+            View Pricing
+          </Link>
         </div>
       </main>
 

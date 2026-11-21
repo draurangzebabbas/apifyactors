@@ -1,115 +1,124 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Check } from 'lucide-react'
+import { Check, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function Pricing({ activePlanId }: { activePlanId?: string | null }) {
-  const plans = [
+  const packages = [
     {
-      id: process.env.POLAR_BASIC_PLAN_ID || 'ff8a9b62-b8f7-4183-b76c-6a4aad2f2ed7',
-      name: 'Basic',
-      price: '$3',
-      period: 'mo',
-      description: 'Perfect for tracking a single high-value group.',
-      href: `/api/checkout?products=${process.env.POLAR_BASIC_PLAN_ID || 'ff8a9b62-b8f7-4183-b76c-6a4aad2f2ed7'}`,
+      name: 'Starter Package',
+      visits: '10,000 Visits',
+      price: '$10',
+      period: '10,000 credits',
+      popular: false,
+      description: 'Ideal for testing new landing pages, small sites, or single URL boost.',
+      href: '/billing',
       variant: 'outline' as const,
       features: [
-        '1 Facebook Group',
-        'Hourly Activity Sync',
-        'Keyword Alerts & Filtering',
-        'Analytics Dashboard',
-        'Community Support',
+        '10,000 Real Browser Visits',
+        'Google SERP & Referral Traffic',
+        'Desktop & Mobile User Agents',
+        'Human Dwell Time (15s – 45s)',
+        'Rotating Residential Proxies',
+        'Automated Batch Scheduling',
       ],
     },
     {
-      id: process.env.POLAR_PRO_PLAN_ID || '1d3d8ccd-aa6c-4b3b-8e06-97bd859f5e10',
-      name: 'Pro',
-      price: '$10',
-      period: 'mo',
-      description: 'For teams actively generating leads across multiple communities.',
-      href: `/api/checkout?products=${process.env.POLAR_PRO_PLAN_ID || '1d3d8ccd-aa6c-4b3b-8e06-97bd859f5e10'}`,
+      name: 'Growth Package',
+      visits: '50,000 Visits',
+      price: '$50',
+      period: '50,000 credits',
+      popular: true,
+      description: 'Best for ongoing SEO campaigns, ranking pushes, and affiliate sites.',
+      href: '/billing',
       variant: 'default' as const,
       features: [
-        'Everything in Basic',
-        'Up to 5 Facebook Groups',
-        'Near Real-Time Sync (5 min)',
-        'Advanced Keyword Rules',
-        'Priority Support',
+        '50,000 Real Browser Visits',
+        'Targeted Google Keyword Clicks',
+        'Internal Multi-Page Navigation',
+        'Custom Referrer Domain Spoofing',
+        'Humanized Jitter & Day Curves',
+        'Automatic SERP Unranked Pruning',
       ],
     },
     {
-      id: process.env.POLAR_SCALE_PLAN_ID || '0e40861a-2b68-4eb0-8c6b-ac22660c84c7',
-      name: 'Scale',
-      price: '$20',
-      period: 'mo',
-      description: 'For power users dominating large community portfolios.',
-      href: `/api/checkout?products=${process.env.POLAR_SCALE_PLAN_ID || '0e40861a-2b68-4eb0-8c6b-ac22660c84c7'}`,
+      name: 'Scale Package',
+      visits: '100,000 Visits',
+      price: '$100',
+      period: '100,000 credits',
+      popular: false,
+      description: 'Maximum volume for marketing agencies, publishers, and high-traffic portals.',
+      href: '/billing',
       variant: 'outline' as const,
       features: [
-        'Everything in Pro',
-        'Up to 15 Facebook Groups',
-        'Activity Heatmaps & Trends',
-        'Custom Integrations',
-        'Dedicated Account Manager',
+        '100,000 Real Browser Visits',
+        '24/7 Recurring Daily Cycles',
+        'Custom Proxy IP Support',
+        '100% Target Fulfillment Guarantee',
+        'Deep Diagnostics & SERP Tracking',
+        'Priority API Execution Queue',
       ],
     },
   ]
 
   return (
-    <section id="pricing" className="py-16 md:py-32">
+    <section id="pricing" className="py-16 md:py-28 bg-muted/30 border-y">
       <div className="mx-auto max-w-5xl px-6">
-        <div className="mx-auto max-w-xl space-y-3 text-center mb-12 md:mb-20">
-          <h2 className="text-4xl font-semibold tracking-tight lg:text-5xl">Simple Pricing</h2>
-          <p className="text-muted-foreground">
-            Choose the right plan to automate your Facebook Group monitoring.
+        <div className="mx-auto max-w-xl space-y-3 text-center mb-12 md:mb-16">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+            <Sparkles className="size-3.5" />
+            <span>Pay-As-You-Go Credits</span>
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight md:text-5xl">Transparent Pricing</h2>
+          <p className="text-muted-foreground text-base">
+            $1 = 1,000 traffic credits. No rigid monthly lock-ins or contracts. Top up your balance anytime and run campaigns on your own schedule.
           </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
-          {plans.map((plan) => {
-            const isActive = activePlanId === plan.id;
-            const buttonText = isActive ? 'Current Plan' : 'Get Started';
-            const href = isActive ? '/api/portal' : plan.href;
-
+          {packages.map((pkg) => {
             return (
               <Card 
-                key={plan.name} 
+                key={pkg.name} 
                 className={cn(
-                  "flex flex-col relative overflow-hidden",
-                  isActive && "border-primary ring-2 ring-primary/20 shadow-md"
+                  "flex flex-col relative overflow-hidden bg-card transition-all",
+                  pkg.popular && "border-primary ring-2 ring-primary/20 shadow-lg scale-[1.02]"
                 )}
               >
-                {isActive && (
-                  <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-bl-md uppercase tracking-wider">
-                    Active
+                {pkg.popular && (
+                  <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-bl-md uppercase tracking-wider">
+                    Most Popular
                   </div>
                 )}
-                <CardHeader className="space-y-4 pb-4">
-                  <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                    {plan.name}
-                  </CardTitle>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-semibold">{plan.price}</span>
-                    <span className="text-muted-foreground text-sm">/ {plan.period}</span>
+                <CardHeader className="space-y-3 pb-4">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {pkg.name}
                   </div>
-                  <p className="text-sm text-muted-foreground">{plan.description}</p>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-4xl font-bold">{pkg.price}</span>
+                    <span className="text-muted-foreground text-xs">/ {pkg.period}</span>
+                  </div>
+                  <div className="text-sm font-medium text-primary">
+                    {pkg.visits}
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed min-h-[32px]">{pkg.description}</p>
                   <Button
-                    variant={isActive ? 'secondary' : plan.variant}
+                    variant={pkg.popular ? 'default' : 'outline'}
                     className="w-full"
-                    render={<Link href={href} />}
+                    render={<Link href={pkg.href} />}
                     nativeButton={false}
                   >
-                    {buttonText}
+                    Top Up Credits
                   </Button>
                 </CardHeader>
 
                 <CardContent className="flex-1 space-y-4 pt-0">
                   <hr className="border-dashed" />
-                  <ul className="space-y-2.5 text-sm">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex items-center gap-2.5">
-                        <Check className="size-3.5 shrink-0 text-muted-foreground" />
+                  <ul className="space-y-2.5 text-xs text-muted-foreground">
+                    {pkg.features.map((feature) => (
+                      <li key={feature} className="flex items-center gap-2.5 text-foreground/90">
+                        <Check className="size-3.5 shrink-0 text-emerald-500" />
                         <span>{feature}</span>
                       </li>
                     ))}
