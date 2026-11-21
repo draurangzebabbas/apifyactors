@@ -44,6 +44,7 @@ interface Batch {
     fallbackDirect?: number
     captchaAvoided?: number
     notRankedCount?: number
+    unrankedUrls?: string[]
     failedSessions?: number
     failureBreakdown?: Record<string, number>
     failureDescriptions?: Record<string, string>
