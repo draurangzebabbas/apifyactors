@@ -18,8 +18,61 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TrafficFlow - Automated Website Traffic & SERP Booster",
-  description: "Automated website traffic, Google SERP organic clicks, and high-intent referral automation at scale.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://trafficflowdraurangzebabbas.vercel.app"),
+  title: {
+    default: "TrafficFlow - Automated Website Traffic & SERP Booster",
+    template: "%s | TrafficFlow",
+  },
+  description: "Automated real-browser website traffic, Google SERP organic clicks, and high-intent referral automation at scale.",
+  applicationName: "TrafficFlow",
+  keywords: [
+    "website traffic",
+    "serp traffic",
+    "google organic clicks",
+    "automated traffic generator",
+    "referral traffic bot",
+    "traffic booster"
+  ],
+  icons: {
+    icon: [
+      { url: "/assets/favicon.ico" },
+      { url: "/assets/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/assets/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: [
+      { url: "/assets/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    shortcut: "/assets/favicon.ico",
+  },
+  manifest: "/site.webmanifest",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://trafficflowdraurangzebabbas.vercel.app",
+    title: "TrafficFlow - Automated Website Traffic & SERP Booster",
+    description: "Automated real-browser website traffic, Google SERP organic clicks, and high-intent referral automation at scale.",
+    siteName: "TrafficFlow",
+    images: [
+      {
+        url: "/assets/android-chrome-512x512.png",
+        width: 512,
+        height: 512,
+        alt: "TrafficFlow - Real Browser Website Traffic & SERP Automation",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TrafficFlow - Automated Website Traffic & SERP Booster",
+    description: "Automated real-browser website traffic, Google SERP organic clicks, and high-intent referral automation at scale.",
+    images: ["/assets/android-chrome-512x512.png"],
+    creator: "@TrafficFlow",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "TrafficFlow",
+  },
 };
 
 export default function RootLayout({

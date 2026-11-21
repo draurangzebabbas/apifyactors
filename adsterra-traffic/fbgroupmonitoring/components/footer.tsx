@@ -36,10 +36,10 @@ export default function Footer() {
                     <div className="lg:col-span-2">
                         <Link href="/" className="flex items-center gap-2.5 w-fit">
                             <LogoIcon className="size-7" />
-                            <span className="text-lg font-bold tracking-tight">FBMonitor</span>
+                            <span className="text-lg font-bold tracking-tight">TrafficFlow</span>
                         </Link>
                         <p className="text-muted-foreground mt-4 max-w-xs text-sm leading-relaxed">
-                            Automate Facebook group tracking with real-time scraping, keyword alerts, and actionable analytics — all in one platform.
+                            Automated real-browser website traffic, Google SERP organic clicks, and high-intent referral automation at scale.
                         </p>
                     </div>
 
