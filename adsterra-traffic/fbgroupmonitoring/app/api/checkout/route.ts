@@ -19,15 +19,20 @@ export const GET = async (req: Request) => {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    const url = new URL(req.url);
-    const productId = url.searchParams.get("products") || url.searchParams.get("productId") || POLAR_UNIT_PRODUCT_ID;
-    const unitsParam = url.searchParams.get("units");
-    const units = Math.max(10, unitsParam ? parseInt(unitsParam, 10) : 100);
-
     // Dynamically resolve base URL from incoming request headers
     const proto = req.headers.get("x-forwarded-proto") || "https";
     const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "trafficflowdraurangzebabbas.vercel.app";
     const origin = `${proto}://${host}`;
+
+    // Require authentication before checkout so every purchase is strictly linked to a user account
+    if (!user) {
+      return NextResponse.redirect(`${origin}/login`);
+    }
+
+    const url = new URL(req.url);
+    const productId = url.searchParams.get("products") || url.searchParams.get("productId") || POLAR_UNIT_PRODUCT_ID;
+    const unitsParam = url.searchParams.get("units");
+    const units = Math.max(10, unitsParam ? parseInt(unitsParam, 10) : 100);
 
     const successUrl = process.env.POLAR_SUCCESS_URL || `${origin}/billing?status=success&checkout_id={CHECKOUT_ID}`;
     const returnUrl = process.env.NEXT_PUBLIC_APP_URL || `${origin}/billing`;
