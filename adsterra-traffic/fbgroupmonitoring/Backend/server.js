@@ -838,7 +838,7 @@ async function runTrafficBatchWorker() {
             startUrls: formattedStartUrls,
             // Traffic control
             totalVisits: batch.visits_target,       // actor field name is totalVisits
-            maxConcurrentSessions: 5,               // 5 concurrent browsers for smooth, prompt throughput
+            maxConcurrentSessions: trafficSrc === 'serp_google' ? 1 : 5, // SERP: 1 to avoid Google CAPTCHA cascades; others: 5 for throughput
             // Traffic source & referrer
             trafficSource: trafficSrc,              // enum: referrer|serp_google|backlink|direct
             referrerSource: campaign.referrer_source || 'preset_search',
