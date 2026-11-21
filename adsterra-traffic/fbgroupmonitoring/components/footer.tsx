@@ -115,7 +115,7 @@ export default function Footer() {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     aria-label={s.label}
-                                    className="text-muted-foreground hover:text-foreground flex size-9 items-center justify-center rounded-lg border transition-colors hover:border-foreground/20 hover:bg-muted"
+                                    className="text-muted-foreground hover:text-foreground flex size-9 items-center justify-center rounded-none border transition-colors hover:border-foreground/20 hover:bg-muted"
                                 >
                                     <Icon size={18} />
                                 </Link>
