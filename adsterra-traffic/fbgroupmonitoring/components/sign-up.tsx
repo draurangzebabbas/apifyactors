@@ -54,7 +54,8 @@ export default function SignUpPage() {
                     <div className="mt-8">
                         <Button
                             type="button"
-                            className="w-full h-11 text-base font-medium flex items-center justify-center gap-3 shadow-sm hover:shadow transition-all"
+                            variant="outline"
+                            className="w-full h-11 text-base font-medium flex items-center justify-center gap-3 bg-background border-border text-foreground hover:border-blue-500/70 hover:bg-blue-50/40 hover:text-blue-600 dark:hover:border-blue-400/70 dark:hover:bg-blue-950/20 dark:hover:text-blue-400 shadow-xs hover:shadow transition-all"
                             onClick={handleGoogleSignUp}
                             disabled={loading}
                         >
