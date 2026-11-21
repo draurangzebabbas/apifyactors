@@ -59,7 +59,7 @@ export default function Pricing({ activePlanId }: { activePlanId?: string | null
       <div className="mx-auto max-w-5xl px-6">
         {/* Header */}
         <div className="mx-auto max-w-2xl space-y-3 text-center mb-12">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+          <div className="inline-flex items-center gap-1.5 rounded-none border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
             <Sparkles className="size-3.5" />
             <span>100% Pay-As-You-Go • No Monthly Renewals</span>
           </div>

@@ -16,7 +16,7 @@ export default function HeroSection() {
                         <div className="relative z-10 mx-auto w-full max-w-5xl px-6">
                             <div className="md:w-1/2">
                                 <div>
-                                    <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary mb-6">
+                                    <div className="inline-flex items-center gap-2 rounded-none border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary mb-6">
                                         <ShieldCheck className="size-3.5" />
                                         <span>Real Headless Chromium Browsers & Residential Proxies</span>
                                     </div>
