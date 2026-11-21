@@ -1,132 +1,210 @@
-import Link from 'next/link'
+'use client'
+
+import React, { useState } from 'react'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Check, Sparkles } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Sparkles, CreditCard, ShieldCheck, Clock, CheckCircle2, Zap } from 'lucide-react'
+
+const CREDITS_PER_DOLLAR = 1000 // $1 USD = 1,000 traffic credits / website visits
+const MIN_AMOUNT_USD = 10       // Minimum $10 required (10,000 credits)
 
 export default function Pricing({ activePlanId }: { activePlanId?: string | null }) {
-  const packages = [
-    {
-      name: 'Starter Package',
-      visits: '10,000 Visits',
-      price: '$10',
-      period: '10,000 credits',
-      popular: false,
-      description: 'Ideal for testing new landing pages, small sites, or single URL boost.',
-      href: '/billing',
-      variant: 'outline' as const,
-      features: [
-        '10,000 Real Browser Visits',
-        'Google SERP & Referral Traffic',
-        'Desktop & Mobile User Agents',
-        'Human Dwell Time (15s – 45s)',
-        'Rotating Residential Proxies',
-        'Automated Batch Scheduling',
-      ],
-    },
-    {
-      name: 'Growth Package',
-      visits: '50,000 Visits',
-      price: '$50',
-      period: '50,000 credits',
-      popular: true,
-      description: 'Best for ongoing SEO campaigns, ranking pushes, and affiliate sites.',
-      href: '/billing',
-      variant: 'default' as const,
-      features: [
-        '50,000 Real Browser Visits',
-        'Targeted Google Keyword Clicks',
-        'Internal Multi-Page Navigation',
-        'Custom Referrer Domain Spoofing',
-        'Humanized Jitter & Day Curves',
-        'Automatic SERP Unranked Pruning',
-      ],
-    },
-    {
-      name: 'Scale Package',
-      visits: '100,000 Visits',
-      price: '$100',
-      period: '100,000 credits',
-      popular: false,
-      description: 'Maximum volume for marketing agencies, publishers, and high-traffic portals.',
-      href: '/billing',
-      variant: 'outline' as const,
-      features: [
-        '100,000 Real Browser Visits',
-        '24/7 Recurring Daily Cycles',
-        'Custom Proxy IP Support',
-        '100% Target Fulfillment Guarantee',
-        'Deep Diagnostics & SERP Tracking',
-        'Priority API Execution Queue',
-      ],
-    },
-  ]
+  const [amountUsd, setAmountUsd] = useState<number>(10)
+
+  const cleanDollars = Math.max(MIN_AMOUNT_USD, amountUsd || MIN_AMOUNT_USD)
+  const calculatedCredits = cleanDollars * CREDITS_PER_DOLLAR
+
+  const handleCheckout = () => {
+    // Redirect directly to unified Polar checkout with selected unit quantity
+    window.location.href = `/api/checkout?units=${cleanDollars}`
+  }
 
   return (
-    <section id="pricing" className="py-16 md:py-28 bg-muted/30 border-y">
+    <section id="pricing" className="py-20 md:py-28 bg-muted/20 border-y">
       <div className="mx-auto max-w-5xl px-6">
-        <div className="mx-auto max-w-xl space-y-3 text-center mb-12 md:mb-16">
+        {/* Header */}
+        <div className="mx-auto max-w-2xl space-y-3 text-center mb-12">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
             <Sparkles className="size-3.5" />
-            <span>Pay-As-You-Go Credits</span>
+            <span>100% Pay-As-You-Go • No Monthly Renewals</span>
           </div>
-          <h2 className="text-3xl font-bold tracking-tight md:text-5xl">Transparent Pricing</h2>
-          <p className="text-muted-foreground text-base">
-            $1 = 1,000 traffic credits. No rigid monthly lock-ins or contracts. Top up your balance anytime and run campaigns on your own schedule.
+          <h2 className="text-3xl font-bold tracking-tight md:text-5xl">Simple, Flexible Pricing</h2>
+          <p className="text-muted-foreground text-base leading-relaxed">
+            No recurring subscriptions or monthly fees. Buy credits once and they stay in your wallet forever until you use them. Minimum purchase is just $10.
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          {packages.map((pkg) => {
-            return (
-              <Card 
-                key={pkg.name} 
-                className={cn(
-                  "flex flex-col relative overflow-hidden bg-card transition-all",
-                  pkg.popular && "border-primary ring-2 ring-primary/20 shadow-lg scale-[1.02]"
-                )}
-              >
-                {pkg.popular && (
-                  <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-bl-md uppercase tracking-wider">
-                    Most Popular
+        {/* Interactive Buy Credits Calculator (Matches Billing Wallet) */}
+        <div className="mx-auto max-w-3xl">
+          <Card className="border-2 border-primary/20 shadow-xl bg-card overflow-hidden">
+            <CardHeader className="border-b bg-card/60 pb-5">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Sparkles className="size-4" />
                   </div>
-                )}
-                <CardHeader className="space-y-3 pb-4">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {pkg.name}
-                  </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-4xl font-bold">{pkg.price}</span>
-                    <span className="text-muted-foreground text-xs">/ {pkg.period}</span>
-                  </div>
-                  <div className="text-sm font-medium text-primary">
-                    {pkg.visits}
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed min-h-[32px]">{pkg.description}</p>
-                  <Button
-                    variant={pkg.popular ? 'default' : 'outline'}
-                    className="w-full"
-                    render={<Link href={pkg.href} />}
-                    nativeButton={false}
-                  >
-                    Top Up Credits
-                  </Button>
-                </CardHeader>
+                  <CardTitle className="text-xl font-bold">Buy Traffic Credits</CardTitle>
+                </div>
+                <Badge variant="secondary" className="text-xs font-semibold px-2.5 py-1">
+                  Rate: $1.00 USD = 1,000 Credits
+                </Badge>
+              </div>
+              <CardDescription className="text-xs text-muted-foreground mt-1.5">
+                Flexible pay-as-you-go credit wallet. Enter any dollar amount from ${MIN_AMOUNT_USD} upwards.
+              </CardDescription>
+            </CardHeader>
 
-                <CardContent className="flex-1 space-y-4 pt-0">
-                  <hr className="border-dashed" />
-                  <ul className="space-y-2.5 text-xs text-muted-foreground">
-                    {pkg.features.map((feature) => (
-                      <li key={feature} className="flex items-center gap-2.5 text-foreground/90">
-                        <Check className="size-3.5 shrink-0 text-emerald-500" />
-                        <span>{feature}</span>
-                      </li>
+            <CardContent className="space-y-6 pt-6">
+              {/* Dollar Amount Controls */}
+              <div className="space-y-3">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                  Enter Amount to Spend ($ USD)
+                </label>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <div className="relative w-full sm:max-w-xs shrink-0">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-base">
+                      $
+                    </span>
+                    <Input
+                      type="number"
+                      min={MIN_AMOUNT_USD}
+                      step={1}
+                      value={amountUsd || ''}
+                      onChange={e => {
+                        const val = parseInt(e.target.value, 10)
+                        setAmountUsd(isNaN(val) ? 0 : Math.floor(val))
+                      }}
+                      onBlur={() => {
+                        if (!amountUsd || amountUsd < MIN_AMOUNT_USD) {
+                          setAmountUsd(MIN_AMOUNT_USD)
+                        }
+                      }}
+                      placeholder="10"
+                      className="pl-8 text-lg font-bold h-11"
+                    />
+                  </div>
+
+                  {/* Preset Pills */}
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {[10, 25, 50, 100, 250, 500, 1000].map(amt => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setAmountUsd(amt)}
+                        className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition cursor-pointer ${
+                          amountUsd === amt
+                            ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                            : 'bg-muted/60 hover:bg-muted text-foreground border-border'
+                        }`}
+                      >
+                        ${amt.toLocaleString()} ({(amt * CREDITS_PER_DOLLAR).toLocaleString()} Credits)
+                      </button>
                     ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )
-          })}
+                  </div>
+                </div>
+
+                {amountUsd > 0 && amountUsd < MIN_AMOUNT_USD && (
+                  <p className="text-xs text-destructive font-medium">
+                    Minimum spend is ${MIN_AMOUNT_USD} (10,000 Credits)
+                  </p>
+                )}
+              </div>
+
+              {/* Conversion Breakdown Box */}
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center sm:text-left">
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      You Pay
+                    </div>
+                    <div className="text-3xl font-extrabold text-foreground mt-1">
+                      ${cleanDollars.toLocaleString()} USD
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">One-time payment</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      You Receive
+                    </div>
+                    <div className="text-3xl font-extrabold text-primary mt-1">
+                      {calculatedCredits.toLocaleString()} Credits
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">1 Credit = 1 Website Visit</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+
+            <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t bg-card/60 pt-5 pb-5">
+              <div className="text-xs text-muted-foreground leading-relaxed text-center sm:text-left">
+                Secure 256-bit encrypted checkout. Credits never expire and activate immediately.
+              </div>
+              <Button
+                size="lg"
+                onClick={handleCheckout}
+                disabled={!amountUsd || amountUsd < MIN_AMOUNT_USD}
+                className="w-full sm:w-auto min-w-[260px] font-semibold gap-2 h-11"
+              >
+                <CreditCard className="w-4 h-4" />
+                {amountUsd < MIN_AMOUNT_USD
+                  ? `Minimum $${MIN_AMOUNT_USD} Required`
+                  : `Proceed to Checkout ($${cleanDollars.toLocaleString()})`}
+              </Button>
+            </CardFooter>
+          </Card>
+
+          {/* 4 Clear Value Guarantees (No Artificial Plans) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
+            <div className="flex items-start gap-3 p-4 rounded-xl border bg-card/80">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+                <Clock className="size-4" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold">Credits Never Expire</h4>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Your balance stays in your account indefinitely. Use them today, next week, or next year whenever you need visits.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-4 rounded-xl border bg-card/80">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
+                <ShieldCheck className="size-4" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold">Zero Monthly Renewals</h4>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  No subscriptions, no hidden invoices, and no auto-charges. You only pay when you choose to top up.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-4 rounded-xl border bg-card/80">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-purple-500">
+                <Zap className="size-4" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold">Instant Wallet Activation</h4>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Credits are automatically credited to your wallet the second checkout completes so you can launch campaigns right away.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-4 rounded-xl border bg-card/80">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+                <CheckCircle2 className="size-4" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold">100% Target Fulfillment</h4>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Every batch delivers real browser sessions. Any unmet visits are automatically rescheduled or refunded on cancellation.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
