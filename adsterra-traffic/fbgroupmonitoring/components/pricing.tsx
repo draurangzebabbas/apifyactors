@@ -202,8 +202,8 @@ export default function Pricing({ activePlanId }: { activePlanId?: string | null
 
           {/* 4 Clear Value Guarantees (No Artificial Plans) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
-            <div className="flex items-start gap-3 p-4 rounded-xl border bg-card/80">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+            <div className="flex items-start gap-3 p-4 rounded-none border bg-card/80">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-none bg-primary/10 text-primary">
                 <Clock className="size-4" />
               </div>
               <div>
@@ -214,8 +214,8 @@ export default function Pricing({ activePlanId }: { activePlanId?: string | null
               </div>
             </div>
 
-            <div className="flex items-start gap-3 p-4 rounded-xl border bg-card/80">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
+            <div className="flex items-start gap-3 p-4 rounded-none border bg-card/80">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-none bg-primary/10 text-primary">
                 <ShieldCheck className="size-4" />
               </div>
               <div>
@@ -226,8 +226,8 @@ export default function Pricing({ activePlanId }: { activePlanId?: string | null
               </div>
             </div>
 
-            <div className="flex items-start gap-3 p-4 rounded-xl border bg-card/80">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-purple-500">
+            <div className="flex items-start gap-3 p-4 rounded-none border bg-card/80">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-none bg-primary/10 text-primary">
                 <Zap className="size-4" />
               </div>
               <div>
@@ -238,8 +238,8 @@ export default function Pricing({ activePlanId }: { activePlanId?: string | null
               </div>
             </div>
 
-            <div className="flex items-start gap-3 p-4 rounded-xl border bg-card/80">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+            <div className="flex items-start gap-3 p-4 rounded-none border bg-card/80">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-none bg-primary/10 text-primary">
                 <CheckCircle2 className="size-4" />
               </div>
               <div>

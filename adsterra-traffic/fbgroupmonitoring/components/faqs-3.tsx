@@ -85,10 +85,10 @@ export default function FAQsThree() {
                                 <AccordionItem
                                     key={item.id}
                                     value={item.id}
-                                    className="bg-card shadow-xs rounded-lg border px-4 last:border-b">
+                                    className="bg-card shadow-xs rounded-none border px-4 last:border-b">
                                     <AccordionTrigger className="cursor-pointer items-center py-5 hover:no-underline">
                                         <div className="flex items-center gap-3">
-                                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                            <div className="flex size-7 shrink-0 items-center justify-center rounded-none bg-primary/10 text-primary">
                                                 {(() => {
                                                     const Icon = iconMap[item.icon]
                                                     return Icon ? <Icon className="m-auto size-4" /> : null
